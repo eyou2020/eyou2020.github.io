@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
+import android.location.Geocoder
 import android.location.Location
 import android.media.MediaRecorder
 import android.net.Uri
@@ -28,6 +29,7 @@ import java.io.File
 import java.io.FileDescriptor
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -46,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     // UI
     private lateinit var textureView: TextureView
     private lateinit var tvLocation: TextView
+    private lateinit var tvAddress: TextView
     private lateinit var tvSpeed: TextView
     private lateinit var tvDateTime: TextView
     private lateinit var btnRecord: ImageButton
@@ -69,6 +72,8 @@ class MainActivity : AppCompatActivity() {
     // Location
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var locationCallback: LocationCallback? = null
+    private var lastGeocodedLocation: Location? = null
+    private val geocoderExecutor = Executors.newSingleThreadExecutor()
 
     // UI hide logic
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -127,6 +132,7 @@ class MainActivity : AppCompatActivity() {
 
         textureView = findViewById(R.id.textureView)
         tvLocation = findViewById(R.id.tvLocation)
+        tvAddress = findViewById(R.id.tvAddress)
         tvSpeed = findViewById(R.id.tvSpeed)
         tvDateTime = findViewById(R.id.tvDateTime)
         btnRecord = findViewById(R.id.btnRecord)
@@ -162,6 +168,11 @@ class MainActivity : AppCompatActivity() {
         closeCamera()
         stopBackgroundThread()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        geocoderExecutor.shutdown()
+        super.onDestroy()
     }
 
     private fun checkPermissions() = REQUIRED_PERMISSIONS.all {
@@ -475,5 +486,47 @@ class MainActivity : AppCompatActivity() {
 
         val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
         tvSpeed.text = "$speedKmh\nkm/h"
+
+        fetchAddress(location)
+    }
+
+    private fun fetchAddress(location: Location) {
+        // 50m 이상 이동했을 때만 역지오코딩 (네트워크 절약)
+        if (lastGeocodedLocation != null && location.distanceTo(lastGeocodedLocation!!) < 50f) return
+        lastGeocodedLocation = location
+
+        if (!Geocoder.isPresent()) return
+
+        val geocoder = Geocoder(this, Locale.getDefault())
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                val text = formatAddress(addresses.firstOrNull())
+                runOnUiThread { tvAddress.text = text }
+            }
+        } else {
+            geocoderExecutor.execute {
+                try {
+                    @Suppress("DEPRECATION")
+                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    val text = formatAddress(addresses?.firstOrNull())
+                    runOnUiThread { tvAddress.text = text }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Geocoder error", e)
+                }
+            }
+        }
+    }
+
+    private fun formatAddress(address: android.location.Address?): String {
+        if (address == null) return ""
+        // 시/도 + 구/군 + 도로명 순으로 조합
+        val parts = mutableListOf<String>()
+        address.adminArea?.let { parts.add(it) }
+        address.subAdminArea?.takeIf { it != address.adminArea }?.let { parts.add(it) }
+        address.thoroughfare?.let { parts.add(it) }
+        if (parts.isNotEmpty()) return parts.joinToString(" ")
+        // 폴백: 첫 번째 주소 라인
+        return address.getAddressLine(0)?.take(50) ?: ""
     }
 }
