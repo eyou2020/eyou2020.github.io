@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <!-- Outer ring -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M18,18 m-16,0 a16,16 0,1,0 32,0 a16,16 0,1,0 -32,0" />
+    <!-- Inner red circle -->
+    <path
+        android:fillColor="#FF3B30"
+        android:pathData="M18,18 m-11,0 a11,11 0,1,0 22,0 a11,11 0,1,0 -22,0" />
+</vector>
