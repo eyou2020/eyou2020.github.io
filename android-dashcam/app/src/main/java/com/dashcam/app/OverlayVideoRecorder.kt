@@ -57,22 +57,22 @@ class OverlayVideoRecorder(
                 gl_FragColor = texture2D(uTexture, vTexCoord);
             }""".trimIndent()
 
-        // Plain 2-D overlay texture
+        // Plain 2-D overlay texture — guide's exact variable names to avoid confusion with camera shader
         private val VS_OVERLAY = """
             attribute vec4 aPosition;
-            attribute vec2 aTexCoord;
-            varying vec2 vTexCoord;
+            attribute vec2 aTextureCoord;
+            varying vec2 vTextureCoord;
             void main() {
                 gl_Position = aPosition;
-                vTexCoord = aTexCoord;
+                vTextureCoord = aTextureCoord;
             }""".trimIndent()
 
         private val FS_OVERLAY = """
             precision mediump float;
-            varying vec2 vTexCoord;
-            uniform sampler2D uTexture;
+            varying vec2 vTextureCoord;
+            uniform sampler2D uOverlayTexture;
             void main() {
-                gl_FragColor = texture2D(uTexture, vTexCoord);
+                gl_FragColor = texture2D(uOverlayTexture, vTextureCoord);
             }""".trimIndent()
     }
 
@@ -116,14 +116,19 @@ class OverlayVideoRecorder(
     private var camProgram     = 0
     private var overlayProgram = 0
     private var cameraTexId    = 0  // GL_TEXTURE_EXTERNAL_OES  → unit 0
-    private var overlayTexId   = 0  // GL_TEXTURE_2D            → unit 1
+    private var overlayTexId   = 0  // GL_TEXTURE_2D            → unit 0 (different target, no conflict)
     private lateinit var camSt: SurfaceTexture
     private val stMatrix = FloatArray(16)
 
-    // Pre-allocated quad buffers
-    private lateinit var vertBuf:    FloatBuffer   // NDC positions
-    private lateinit var texBuf:     FloatBuffer   // camera UV (no flip needed — STMatrix handles it)
-    private lateinit var texFlipBuf: FloatBuffer   // overlay UV (Y-flipped: Canvas↔GL origin)
+    // Camera quad buffers (separate position + UV, camera STMatrix handles orientation)
+    private lateinit var vertBuf: FloatBuffer
+    private lateinit var texBuf:  FloatBuffer
+
+    // Overlay quad — interleaved (x,y, u,v) per vertex as recommended by the guide.
+    // Both position and texcoord in one buffer eliminates any per-attribute pointer misalignment.
+    //   NDC (-1,-1)=screen-bottom-left  →  UV (0,1)=canvas-bottom-left  (speed text)
+    //   NDC (-1, 1)=screen-top-left     →  UV (0,0)=canvas-top-left     (GPS text)
+    private lateinit var overlayCoordBuf: FloatBuffer
 
     // Overlay bitmap — reused across frames, rebuilt when dirty or ~once per second
     private var overlayBitmap: Bitmap? = null
@@ -254,27 +259,37 @@ class OverlayVideoRecorder(
         val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
         cameraTexId  = ids[0]
         overlayTexId = ids[1]
+        Log.d(TAG, "glGenTextures → cameraTexId=$cameraTexId  overlayTexId=$overlayTexId")
+        checkGlError("glGenTextures")
 
-        // Camera OES texture → texture unit 0
+        // Both textures live on unit 0.
+        // GL_TEXTURE_EXTERNAL_OES and GL_TEXTURE_2D are separate targets on the same unit;
+        // the sampler type in the active program selects which binding is read.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        checkGlError("camera OES tex params")
 
-        // Overlay 2D texture → texture unit 1 (must not share a unit with the OES texture)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        checkGlError("overlay 2D tex params")
 
-        // Leave unit 0 active so updateTexImage() always operates on the right unit
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        // Camera quad — separate position and UV buffers (STMatrix in VS handles orientation)
+        vertBuf = floatBuf(floatArrayOf(-1f,-1f,  1f,-1f,  -1f,1f,  1f,1f))
+        texBuf  = floatBuf(floatArrayOf( 0f, 0f,  1f, 0f,   0f,1f,  1f,1f))
 
-        vertBuf    = floatBuf(floatArrayOf(-1f,-1f,  1f,-1f,  -1f,1f,  1f,1f))
-        texBuf     = floatBuf(floatArrayOf( 0f, 0f,  1f, 0f,   0f,1f,  1f,1f))
-        texFlipBuf = floatBuf(floatArrayOf( 0f, 1f,  1f, 1f,   0f,0f,  1f,0f))
+        // Overlay quad — interleaved (x, y, u, v), four vertices × 4 floats = 16 bytes stride
+        overlayCoordBuf = floatBuf(floatArrayOf(
+            -1f, -1f,  0f, 1f,   // bottom-left screen  → canvas bottom-left (speed)
+             1f, -1f,  1f, 1f,   // bottom-right screen → canvas bottom-right
+            -1f,  1f,  0f, 0f,   // top-left screen     → canvas top-left    (GPS / time)
+             1f,  1f,  1f, 0f    // top-right screen    → canvas top-right
+        ))
     }
 
     private fun setupCameraSurface() {
@@ -292,9 +307,8 @@ class OverlayVideoRecorder(
     private fun renderFrame() {
         if (!running.get()) return
 
-        // CRITICAL: updateTexImage() calls glBindTexture(GL_TEXTURE_EXTERNAL_OES, ...) on
-        // whichever texture unit is currently active. Force unit 0 so the camera OES texture
-        // is always updated there, keeping it separate from the overlay on unit 1.
+        // updateTexImage() calls glBindTexture(GL_TEXTURE_EXTERNAL_OES, ...) on whatever
+        // unit is active — always force unit 0 first so the OES bind lands in the right place.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         camSt.updateTexImage()
         camSt.getTransformMatrix(stMatrix)
@@ -336,6 +350,11 @@ class OverlayVideoRecorder(
         GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, 0, texBuf)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
+
+        // Unbind the OES target from unit 0 after Pass 1 so that Pass 2's sampler2D
+        // reads only the 2D binding — having both targets bound on the same unit while
+        // sampling with sampler2D is undefined on some drivers.
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
     }
 
     private fun bakeOverlay() {
@@ -403,41 +422,46 @@ class OverlayVideoRecorder(
     }
 
     private fun uploadOverlayBitmap(bmp: Bitmap) {
-        // Upload to unit 1 — do NOT touch unit 0 (camera OES lives there)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        // OES was already unbound after Pass 1; bind 2D target on unit 0 for upload
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
         checkGlError("texImage2D overlay")
-        // Restore unit 0 so updateTexImage() is always safe on the next frame
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     }
 
     private fun drawOverlayTexture() {
         GLES20.glEnable(GLES20.GL_BLEND)
-        // Android Bitmap.ARGB_8888 uses pre-multiplied alpha: correct formula is
-        // GL_ONE (not GL_SRC_ALPHA) so the alpha factor is not applied twice.
+        // Android Bitmap.ARGB_8888 uses pre-multiplied alpha: GL_ONE avoids double-multiplication
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
 
         GLES20.glUseProgram(overlayProgram)
+
+        // Attribute locations — queried from overlayProgram using guide's exact names
         val pos = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
-        val tex = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
+        val tex = GLES20.glGetAttribLocation(overlayProgram, "aTextureCoord")
+        Log.d(TAG, "overlay attrib pos=$pos tex=$tex")
 
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        // Bind 2D texture on unit 0 (OES was unbound in drawCameraTexture)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
-        GLES20.glUniform1i(GLES20.glGetUniformLocation(overlayProgram, "uTexture"), 1)
+        GLES20.glUniform1i(GLES20.glGetUniformLocation(overlayProgram, "uOverlayTexture"), 0)
 
+        // Interleaved buffer: stride = 4 floats × 4 bytes = 16 bytes
+        val stride = 16
+        overlayCoordBuf.position(0)
         GLES20.glEnableVertexAttribArray(pos)
-        GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertBuf)
+        GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+
+        overlayCoordBuf.position(2)   // skip 2 position floats (8 bytes) to reach UV offset
         GLES20.glEnableVertexAttribArray(tex)
-        GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, 0, texFlipBuf)
+        GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+
+        overlayCoordBuf.position(0)   // reset for next use
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         checkGlError("drawOverlayTexture")
 
         GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
         GLES20.glDisable(GLES20.GL_BLEND)
-
-        // Restore unit 0 so the next updateTexImage() call lands on the right unit
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     }
 
     // ── Video codec drain ─────────────────────────────────────────────────
