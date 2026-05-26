@@ -147,7 +147,9 @@ class OverlayVideoRecorder(
     private var videoTrack = -1
     private var audioTrack = -1
     @Volatile private var muxerStarted = false
-    private var startNs = 0L
+    // First camera frame's SurfaceTexture timestamp — used to zero-base video PTS so
+    // that video and audio tracks start at the same reference point in the muxer.
+    private var startCamNs = 0L
     private var outputPfd: ParcelFileDescriptor? = null
 
     // Single lock for MediaMuxer — it is NOT thread-safe
@@ -252,6 +254,10 @@ class OverlayVideoRecorder(
             eglDisplay, cfgs[0], encoderInputSurface, intArrayOf(EGL14.EGL_NONE), 0
         )
         EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)
+        // One EGL surface only — both Pass 1 (camera) and Pass 2 (overlay) render here.
+        // There is no display/preview surface in this EGL context; preview is handled by
+        // Camera2 → TextureView on the main thread, completely separate from recording.
+        Log.d(TAG, "EGL ready — single encoderSurface=$eglSurface  context=$eglContext")
 
         videoEncoder!!.start()
     }
@@ -342,9 +348,12 @@ class OverlayVideoRecorder(
         GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
         drawOverlayTexture()  // Pass 2: GPS/time/speed on top
 
-        val nowNs = System.nanoTime()
-        if (startNs == 0L) startNs = nowNs
-        EGLExt.eglPresentationTimeANDROID(eglDisplay, eglSurface, nowNs - startNs)
+        // Use the camera SurfaceTexture hardware timestamp (nanoseconds, monotonically
+        // increasing) as the video PTS.  Zero-base it against the first frame so that
+        // video and audio tracks both start at ~0 µs, preventing MediaMuxer from
+        // misinterpreting the huge absolute clock value as a multi-day offset.
+        if (startCamNs == 0L) startCamNs = camSt.timestamp
+        EGLExt.eglPresentationTimeANDROID(eglDisplay, eglSurface, camSt.timestamp - startCamNs)
         EGL14.eglSwapBuffers(eglDisplay, eglSurface)  // delivers completed frame to encoder
 
         drainVideo(eos = false)
