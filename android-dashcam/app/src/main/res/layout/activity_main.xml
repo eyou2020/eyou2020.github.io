@@ -4,9 +4,13 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- Camera Preview -->
-    <TextureView
-        android:id="@+id/textureView"
+    <!--
+        GL renders camera + overlay to this surface every frame.
+        EGL_RECORDABLE_ANDROID is set on our EGL config so the same
+        GL context also renders to the MediaCodec encoder surface.
+    -->
+    <SurfaceView
+        android:id="@+id/surfaceView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
