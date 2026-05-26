@@ -336,6 +336,10 @@ class OverlayVideoRecorder(
         if (overlayDirty.getAndSet(false) || frameCount % FRAME_RATE == 0 || overlayBitmap == null) {
             bakeOverlay()
         }
+
+        // Re-assert viewport before Pass 2 — some drivers shrink or invalidate it
+        // after the first draw call when the encoder surface dimensions differ from display.
+        GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
         drawOverlayTexture()  // Pass 2: GPS/time/speed on top
 
         val nowNs = System.nanoTime()
@@ -418,19 +422,26 @@ class OverlayVideoRecorder(
             canvas.drawText(text, x, y, paint)
         }
 
-        // Top-left: lat/lon + address
-        var y = margin + textSz
+        // Use fontMetrics for precise baseline placement so text never clips outside the bitmap.
+        // fm.top is negative (distance from baseline to highest ascender).
+        // fm.bottom is positive (distance from baseline to lowest descender).
+        // → To place the text *top* at pixel `py`: baseline = py - fm.top
+        // → To place the text *bottom* at pixel `py`: baseline = py - fm.bottom
+        val fm = paint.fontMetrics
+
+        // Top-left: lat/lon + address — top of first line at `margin`
+        var y = margin - fm.top
         _overlayLocation.split("\n").forEach { line ->
             if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
         }
         if (_overlayAddress.isNotEmpty()) drawLabeled(_overlayAddress, margin, y)
 
-        // Top-right: date/time
+        // Top-right: date/time — top of text at `margin`
         val now = SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(Date())
-        drawLabeled(now, w - paint.measureText(now) - margin, margin + textSz)
+        drawLabeled(now, w - paint.measureText(now) - margin, margin - fm.top)
 
-        // Bottom-left: speed
-        drawLabeled(_overlaySpeed, margin, h - margin)
+        // Bottom-left: speed — bottom of text at `h - margin`
+        drawLabeled(_overlaySpeed, margin, h - margin - fm.bottom)
 
         uploadOverlayBitmap(bmp)
     }
@@ -449,6 +460,10 @@ class OverlayVideoRecorder(
     }
 
     private fun drawOverlayTexture() {
+        // Rewind guarantees position=0 and limit=capacity regardless of any earlier
+        // position() calls that may have been left in a partial state.
+        overlayCoordBuf.rewind()
+
         // Skip draw if program failed to link (cached handles would be -1)
         if (ovPosLoc < 0 || ovTexLoc < 0) {
             Log.w(TAG, "drawOverlayTexture: invalid cached attrib locs — skip")
@@ -477,13 +492,14 @@ class OverlayVideoRecorder(
         GLES20.glVertexAttribPointer(ovTexLoc, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
         GLES20.glEnableVertexAttribArray(ovTexLoc)
 
-        overlayCoordBuf.position(0)
+        overlayCoordBuf.rewind()   // position(0) before draw so captured offset is 0
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         checkGlError("drawOverlayTexture")
 
         GLES20.glDisableVertexAttribArray(ovPosLoc)
         GLES20.glDisableVertexAttribArray(ovTexLoc)
         GLES20.glDisable(GLES20.GL_BLEND)
+        overlayCoordBuf.rewind()   // reset for next frame
     }
 
     // ── Video codec drain ─────────────────────────────────────────────────
