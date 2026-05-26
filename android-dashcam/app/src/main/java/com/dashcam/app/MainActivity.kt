@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSpeed: TextView
     private lateinit var tvDateTime: TextView
     private lateinit var btnRecord: ImageButton
+    private lateinit var btnExit: ImageButton
     private lateinit var tvRecording: TextView
 
     // Camera2
@@ -136,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         tvSpeed = findViewById(R.id.tvSpeed)
         tvDateTime = findViewById(R.id.tvDateTime)
         btnRecord = findViewById(R.id.btnRecord)
+        btnExit = findViewById(R.id.btnExit)
         tvRecording = findViewById(R.id.tvRecording)
 
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
@@ -143,6 +145,11 @@ class MainActivity : AppCompatActivity() {
 
         btnRecord.setOnClickListener {
             if (isRecording) stopRecording() else startRecording()
+        }
+
+        btnExit.setOnClickListener {
+            if (isRecording) stopRecording()
+            finishAndRemoveTask()
         }
 
         textureView.setOnClickListener {
@@ -428,12 +435,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun showRecordButton() {
         btnRecord.visibility = View.VISIBLE
+        btnExit.visibility = View.VISIBLE
         uiHandler.removeCallbacks(hideRunnable)
         if (isRecording) scheduleHideRecordButton()
     }
 
     private fun hideRecordButton() {
-        if (isRecording) btnRecord.visibility = View.GONE
+        if (isRecording) {
+            btnRecord.visibility = View.GONE
+            btnExit.visibility = View.GONE
+        }
     }
 
     private fun scheduleHideRecordButton() {
