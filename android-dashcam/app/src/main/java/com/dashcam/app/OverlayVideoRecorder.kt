@@ -35,7 +35,7 @@ class OverlayVideoRecorder(
         // Set true to fill the overlay with solid RED instead of text.
         // If the video turns red → GL pipeline is correct, fix is the blend formula / text paint.
         // If the video stays camera-only → Pass 2 is not reaching the encoder at all.
-        private const val DEBUG_RED_OVERLAY = false
+        private const val DEBUG_RED_OVERLAY = true
 
         // Camera OES texture — applies SurfaceTexture transform matrix
         private val VS_CAMERA = """
@@ -119,6 +119,12 @@ class OverlayVideoRecorder(
     private var overlayTexId   = 0
     private lateinit var camSt: SurfaceTexture
     private val stMatrix = FloatArray(16)
+
+    // Cached camera program handles — populated once in setupGL() after link.
+    private var camPosLoc  = -1   // "aPosition"
+    private var camTexLoc  = -1   // "aTexCoord"
+    private var camStmLoc  = -1   // "uSTMatrix"
+    private var camSampLoc = -1   // "uTexture"
 
     // Cached overlay program handles — populated once in setupGL() after link.
     // Querying these per-frame with glGetAttribLocation is expensive and error-prone.
@@ -303,8 +309,14 @@ class OverlayVideoRecorder(
              1f,  1f,  1f, 0f    // top-right screen    → canvas top-right
         ))
 
-        // Cache overlay program attribute/uniform locations once after link — avoids
-        // per-frame glGetAttribLocation which can return -1 if program isn't active yet.
+        // Cache camera program handles
+        camPosLoc  = GLES20.glGetAttribLocation(camProgram,  "aPosition")
+        camTexLoc  = GLES20.glGetAttribLocation(camProgram,  "aTexCoord")
+        camStmLoc  = GLES20.glGetUniformLocation(camProgram, "uSTMatrix")
+        camSampLoc = GLES20.glGetUniformLocation(camProgram, "uTexture")
+        Log.d(TAG, "camera  program locs — pos=$camPosLoc  tex=$camTexLoc  stm=$camStmLoc  samp=$camSampLoc")
+
+        // Cache overlay program handles
         ovPosLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aPosition")
         ovTexLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aTextureCoord")
         ovSampLoc = GLES20.glGetUniformLocation(overlayProgram, "uOverlayTexture")
@@ -361,21 +373,24 @@ class OverlayVideoRecorder(
 
     private fun drawCameraTexture() {
         GLES20.glUseProgram(camProgram)
-        val pos = GLES20.glGetAttribLocation(camProgram, "aPosition")
-        val tex = GLES20.glGetAttribLocation(camProgram, "aTexCoord")
-        val stm = GLES20.glGetUniformLocation(camProgram, "uSTMatrix")
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
-        GLES20.glUniform1i(GLES20.glGetUniformLocation(camProgram, "uTexture"), 0)
-        GLES20.glUniformMatrix4fv(stm, 1, false, stMatrix, 0)
+        GLES20.glUniform1i(camSampLoc, 0)
+        GLES20.glUniformMatrix4fv(camStmLoc, 1, false, stMatrix, 0)
 
-        GLES20.glEnableVertexAttribArray(pos)
-        GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertBuf)
-        GLES20.glEnableVertexAttribArray(tex)
-        GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, 0, texBuf)
+        // Pointer-before-Enable (same order as overlay pass for consistency)
+        vertBuf.rewind()
+        GLES20.glVertexAttribPointer(camPosLoc, 2, GLES20.GL_FLOAT, false, 0, vertBuf)
+        GLES20.glEnableVertexAttribArray(camPosLoc)
+        texBuf.rewind()
+        GLES20.glVertexAttribPointer(camTexLoc, 2, GLES20.GL_FLOAT, false, 0, texBuf)
+        GLES20.glEnableVertexAttribArray(camTexLoc)
+
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
+
+        GLES20.glDisableVertexAttribArray(camPosLoc)
+        GLES20.glDisableVertexAttribArray(camTexLoc)
 
         // Unbind the OES target from unit 0 after Pass 1 so that Pass 2's sampler2D
         // reads only the 2D binding — having both targets bound on the same unit while
