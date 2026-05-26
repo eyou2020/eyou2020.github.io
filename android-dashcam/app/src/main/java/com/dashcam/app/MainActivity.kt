@@ -3,7 +3,6 @@ package com.dashcam.app
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
-import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Matrix
 import android.graphics.RectF
@@ -11,10 +10,7 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.location.Geocoder
 import android.location.Location
-import android.media.MediaRecorder
-import android.net.Uri
 import android.os.*
-import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
 import android.view.*
@@ -25,8 +21,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
-import java.io.File
-import java.io.FileDescriptor
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
@@ -63,12 +57,15 @@ class MainActivity : AppCompatActivity() {
     private var backgroundThread: HandlerThread? = null
     private var videoSize = Size(1920, 1080)
 
-    // MediaRecorder
-    private var mediaRecorder: MediaRecorder? = null
+    // Recording
+    private var overlayRecorder: OverlayVideoRecorder? = null
     private var isRecording = false
-    private var currentVideoUri: Uri? = null
-    private var currentPfd: ParcelFileDescriptor? = null
     private var blinkAnimator: ObjectAnimator? = null
+
+    // Latest overlay values (kept so recorder gets current data on start)
+    private var lastOverlayLocation = ""
+    private var lastOverlayAddress  = ""
+    private var lastOverlaySpeed    = "0 km/h"
 
     // Location
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -280,7 +277,6 @@ class MainActivity : AppCompatActivity() {
     private fun closeCamera() {
         captureSession?.close(); captureSession = null
         cameraDevice?.close(); cameraDevice = null
-        mediaRecorder?.release(); mediaRecorder = null
     }
 
     @Suppress("DEPRECATION")
@@ -307,117 +303,65 @@ class MainActivity : AppCompatActivity() {
         st.setDefaultBufferSize(videoSize.width, videoSize.height)
         val previewSurface = Surface(st)
 
-        try {
-            setupMediaRecorder()
-        } catch (e: Exception) {
-            Log.e(TAG, "MediaRecorder setup failed", e)
-            Toast.makeText(this, "녹화 준비 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-            return
+        val recorder = OverlayVideoRecorder(this, videoSize).also {
+            it.overlayLocation = lastOverlayLocation
+            it.overlayAddress  = lastOverlayAddress
+            it.overlaySpeed    = lastOverlaySpeed
         }
+        overlayRecorder = recorder
 
-        val recorderSurface = mediaRecorder!!.surface
-
-        try {
-            val builder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-                addTarget(previewSurface)
-                addTarget(recorderSurface)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-            }
-
-            captureSession?.close()
-            cameraDevice!!.createCaptureSession(
-                listOf(previewSurface, recorderSurface),
-                object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigured(session: CameraCaptureSession) {
-                        captureSession = session
-                        try {
-                            session.setRepeatingRequest(builder.build(), null, backgroundHandler)
-                            runOnUiThread {
-                                mediaRecorder?.start()
-                                isRecording = true
-                                updateRecordingUI()
-                                scheduleHideRecordButton()
+        // OverlayVideoRecorder calls back on its render thread once ready
+        recorder.start { recSurface ->
+            backgroundHandler?.post {
+                try {
+                    val builder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
+                        addTarget(previewSurface)
+                        addTarget(recSurface)   // camera → EGL → encoder
+                        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                        set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    }
+                    captureSession?.close()
+                    cameraDevice!!.createCaptureSession(
+                        listOf(previewSurface, recSurface),
+                        object : CameraCaptureSession.StateCallback() {
+                            override fun onConfigured(session: CameraCaptureSession) {
+                                captureSession = session
+                                try {
+                                    session.setRepeatingRequest(builder.build(), null, backgroundHandler)
+                                    runOnUiThread {
+                                        isRecording = true
+                                        updateRecordingUI()
+                                        scheduleHideRecordButton()
+                                    }
+                                } catch (e: Exception) { Log.e(TAG, "Recording session error", e) }
                             }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Recording session error", e)
-                        }
-                    }
-                    override fun onConfigureFailed(session: CameraCaptureSession) {
-                        runOnUiThread { Toast.makeText(this@MainActivity, "녹화 세션 설정 실패", Toast.LENGTH_SHORT).show() }
-                        Log.e(TAG, "Recording session config failed")
-                    }
-                }, backgroundHandler
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "startRecording error", e)
-            mediaRecorder?.release(); mediaRecorder = null
-        }
-    }
-
-    private fun setupMediaRecorder() {
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-
-        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(this)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
-        }
-
-        mediaRecorder!!.apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setVideoSource(MediaRecorder.VideoSource.SURFACE)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setVideoSize(videoSize.width, videoSize.height)
-            setVideoFrameRate(30)
-            setVideoEncodingBitRate(10_000_000)
-            setAudioSamplingRate(44100)
-            setAudioEncodingBitRate(128_000)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val cv = ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, "DashCam_$timestamp.mp4")
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam")
-                }
-                currentVideoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv)
-                currentPfd = contentResolver.openFileDescriptor(currentVideoUri!!, "w")
-                setOutputFile(currentPfd!!.fileDescriptor)
-            } else {
-                val dir = File(getExternalFilesDir(null), "DashCam").also { it.mkdirs() }
-                setOutputFile("${dir.absolutePath}/DashCam_$timestamp.mp4")
+                            override fun onConfigureFailed(session: CameraCaptureSession) {
+                                runOnUiThread { Toast.makeText(this@MainActivity, "녹화 세션 설정 실패", Toast.LENGTH_SHORT).show() }
+                            }
+                        }, backgroundHandler
+                    )
+                } catch (e: Exception) { Log.e(TAG, "startRecording error", e) }
             }
-            prepare()
         }
     }
 
     private fun stopRecording() {
         isRecording = false
         uiHandler.removeCallbacks(hideRunnable)
-
         try {
             captureSession?.stopRepeating()
             captureSession?.abortCaptures()
-        } catch (e: CameraAccessException) {
-            Log.e(TAG, "Stop repeating error", e)
-        }
+        } catch (e: CameraAccessException) { Log.e(TAG, "Stop repeating error", e) }
 
-        uiHandler.postDelayed({
-            try { mediaRecorder?.stop() } catch (e: Exception) { Log.e(TAG, "MediaRecorder stop error", e) }
-            mediaRecorder?.release(); mediaRecorder = null
-            currentPfd?.close(); currentPfd = null
-
-            runOnUiThread {
-                stopBlinking()
-                updateRecordingUI()
-                showRecordButton()
-                Toast.makeText(this, "영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-            }
+        overlayRecorder?.stop {
+            // runs on main thread (posted by OverlayVideoRecorder)
+            overlayRecorder = null
+            stopBlinking()
+            updateRecordingUI()
+            showRecordButton()
+            Toast.makeText(this, "영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
             startPreview()
-        }, 300)
+        }
     }
 
     // ── Recording UI ───────────────────────────────────────────────────────
@@ -498,6 +442,11 @@ class MainActivity : AppCompatActivity() {
         val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
         tvSpeed.text = "$speedKmh\nkm/h"
 
+        lastOverlayLocation = "$lat\n$lon"
+        lastOverlaySpeed    = "$speedKmh km/h"
+        overlayRecorder?.overlayLocation = lastOverlayLocation
+        overlayRecorder?.overlaySpeed    = lastOverlaySpeed
+
         fetchAddress(location)
     }
 
@@ -513,7 +462,11 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
                 val text = formatAddress(addresses.firstOrNull())
-                runOnUiThread { tvAddress.text = text }
+                runOnUiThread {
+                    tvAddress.text = text
+                    lastOverlayAddress = text
+                    overlayRecorder?.overlayAddress = text
+                }
             }
         } else {
             geocoderExecutor.execute {
@@ -521,7 +474,11 @@ class MainActivity : AppCompatActivity() {
                     @Suppress("DEPRECATION")
                     val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
                     val text = formatAddress(addresses?.firstOrNull())
-                    runOnUiThread { tvAddress.text = text }
+                    runOnUiThread {
+                        tvAddress.text = text
+                        lastOverlayAddress = text
+                        overlayRecorder?.overlayAddress = text
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Geocoder error", e)
                 }
