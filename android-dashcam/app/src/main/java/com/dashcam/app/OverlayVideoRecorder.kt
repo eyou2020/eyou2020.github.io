@@ -251,10 +251,14 @@ class OverlayVideoRecorder(
         val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
         cameraTexId  = ids[0]; overlayTexId = ids[1]
 
+        // Camera OES texture lives on unit 0
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
 
+        // Overlay 2D texture lives on unit 1 — must not share a unit with the OES texture
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
@@ -309,6 +313,7 @@ class OverlayVideoRecorder(
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
+        GLES20.glUniform1i(GLES20.glGetUniformLocation(camProgram, "uTexture"), 0)
         GLES20.glUniformMatrix4fv(stm, 1, false, stMatrix, 0)
 
         GLES20.glEnableVertexAttribArray(pos)
@@ -357,6 +362,7 @@ class OverlayVideoRecorder(
         // ── Bottom-left: speed ───────────────────────────────────────────
         canvas.drawText(overlaySpeed, margin, h - margin, paint)
 
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
     }
@@ -369,8 +375,9 @@ class OverlayVideoRecorder(
         val pos = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
         val tex = GLES20.glGetAttribLocation(overlayProgram, "aTexCoord")
 
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
+        GLES20.glUniform1i(GLES20.glGetUniformLocation(overlayProgram, "uTexture"), 1)
 
         GLES20.glEnableVertexAttribArray(pos)
         GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertBuf)
