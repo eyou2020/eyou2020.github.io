@@ -115,10 +115,16 @@ class OverlayVideoRecorder(
     // GL objects
     private var camProgram     = 0
     private var overlayProgram = 0
-    private var cameraTexId    = 0  // GL_TEXTURE_EXTERNAL_OES  → unit 0
-    private var overlayTexId   = 0  // GL_TEXTURE_2D            → unit 0 (different target, no conflict)
+    private var cameraTexId    = 0
+    private var overlayTexId   = 0
     private lateinit var camSt: SurfaceTexture
     private val stMatrix = FloatArray(16)
+
+    // Cached overlay program handles — populated once in setupGL() after link.
+    // Querying these per-frame with glGetAttribLocation is expensive and error-prone.
+    private var ovPosLoc    = -1   // "aPosition"
+    private var ovTexLoc    = -1   // "aTextureCoord"
+    private var ovSampLoc   = -1   // "uOverlayTexture"
 
     // Camera quad buffers (separate position + UV, camera STMatrix handles orientation)
     private lateinit var vertBuf: FloatBuffer
@@ -290,6 +296,13 @@ class OverlayVideoRecorder(
             -1f,  1f,  0f, 0f,   // top-left screen     → canvas top-left    (GPS / time)
              1f,  1f,  1f, 0f    // top-right screen    → canvas top-right
         ))
+
+        // Cache overlay program attribute/uniform locations once after link — avoids
+        // per-frame glGetAttribLocation which can return -1 if program isn't active yet.
+        ovPosLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aPosition")
+        ovTexLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aTextureCoord")
+        ovSampLoc = GLES20.glGetUniformLocation(overlayProgram, "uOverlayTexture")
+        Log.d(TAG, "overlay program locs — pos=$ovPosLoc  tex=$ovTexLoc  samp=$ovSampLoc")
     }
 
     private fun setupCameraSurface() {
@@ -374,10 +387,11 @@ class OverlayVideoRecorder(
             return
         }
 
-        // Clear to fully-transparent so the camera shows through wherever there is no text
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        // eraseColor is a direct pixel fill — no xfermode, no Porter-Duff compositing path,
+        // guaranteed to produce a fully-transparent bitmap even on Canvas edge cases.
+        bmp.eraseColor(Color.TRANSPARENT)
 
-        val textSz = h * 0.038f
+        val textSz = h * 0.065f
         val margin = w * 0.015f
         val lineH  = textSz * 1.35f
 
@@ -425,42 +439,50 @@ class OverlayVideoRecorder(
         // OES was already unbound after Pass 1; bind 2D target on unit 0 for upload
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
+        // Re-assert filter/wrap params every upload — some drivers reset them after texImage2D
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
         checkGlError("texImage2D overlay")
     }
 
     private fun drawOverlayTexture() {
+        // Skip draw if program failed to link (cached handles would be -1)
+        if (ovPosLoc < 0 || ovTexLoc < 0) {
+            Log.w(TAG, "drawOverlayTexture: invalid cached attrib locs — skip")
+            return
+        }
+
         GLES20.glEnable(GLES20.GL_BLEND)
         // Android Bitmap.ARGB_8888 uses pre-multiplied alpha: GL_ONE avoids double-multiplication
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
 
         GLES20.glUseProgram(overlayProgram)
 
-        // Attribute locations — queried from overlayProgram using guide's exact names
-        val pos = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
-        val tex = GLES20.glGetAttribLocation(overlayProgram, "aTextureCoord")
-        Log.d(TAG, "overlay attrib pos=$pos tex=$tex")
-
         // Bind 2D texture on unit 0 (OES was unbound in drawCameraTexture)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
-        GLES20.glUniform1i(GLES20.glGetUniformLocation(overlayProgram, "uOverlayTexture"), 0)
+        GLES20.glUniform1i(ovSampLoc, 0)
 
-        // Interleaved buffer: stride = 4 floats × 4 bytes = 16 bytes
+        // Interleaved buffer: stride = 4 floats × 4 bytes = 16 bytes.
+        // Guide recommends setting the pointer BEFORE enabling the array.
         val stride = 16
         overlayCoordBuf.position(0)
-        GLES20.glEnableVertexAttribArray(pos)
-        GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+        GLES20.glVertexAttribPointer(ovPosLoc, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+        GLES20.glEnableVertexAttribArray(ovPosLoc)
 
         overlayCoordBuf.position(2)   // skip 2 position floats (8 bytes) to reach UV offset
-        GLES20.glEnableVertexAttribArray(tex)
-        GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+        GLES20.glVertexAttribPointer(ovTexLoc, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
+        GLES20.glEnableVertexAttribArray(ovTexLoc)
 
-        overlayCoordBuf.position(0)   // reset for next use
+        overlayCoordBuf.position(0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         checkGlError("drawOverlayTexture")
 
-        GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
+        GLES20.glDisableVertexAttribArray(ovPosLoc)
+        GLES20.glDisableVertexAttribArray(ovTexLoc)
         GLES20.glDisable(GLES20.GL_BLEND)
     }
 
