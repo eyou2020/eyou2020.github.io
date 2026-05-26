@@ -19,16 +19,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Records camera frames with GPS/time/speed burned in via an EGL → MediaCodec pipeline.
- *
- * Usage:
- *   val recorder = OverlayVideoRecorder(context, videoSize)
- *   recorder.start { camSurface ->
- *       // pass camSurface to Camera2 capture session
- *   }
- *   recorder.stop { /* save complete */ }
- */
 class OverlayVideoRecorder(
     private val context: Context,
     private val videoSize: Size
@@ -42,8 +32,7 @@ class OverlayVideoRecorder(
         private const val AUDIO_SAMPLE_RATE = 44100
         private const val AUDIO_BITRATE = 128_000
 
-        // ── GLSL shaders ──────────────────────────────────────────────────
-        // Camera OES texture (applies SurfaceTexture transform matrix)
+        // Camera OES texture — applies SurfaceTexture transform matrix
         private val VS_CAMERA = """
             attribute vec4 aPosition;
             attribute vec4 aTexCoord;
@@ -63,7 +52,7 @@ class OverlayVideoRecorder(
                 gl_FragColor = texture2D(uTexture, vTexCoord);
             }""".trimIndent()
 
-        // Plain 2-D texture (overlay bitmap — no matrix needed)
+        // Plain 2-D overlay texture
         private val VS_OVERLAY = """
             attribute vec4 aPosition;
             attribute vec2 aTexCoord;
@@ -86,14 +75,27 @@ class OverlayVideoRecorder(
     var cameraSurface: Surface? = null
         private set
 
-    // Overlay data; set freely from any thread
-    @Volatile var overlayLocation = ""
-    @Volatile var overlayAddress  = ""
-    @Volatile var overlaySpeed    = "0 km/h"
+    // ── Overlay data with dirty-flag backing ──────────────────────────────
+    // Written from any thread; render thread checks overlayDirty each frame.
+    private val overlayDirty = AtomicBoolean(true)
+
+    @Volatile private var _overlayLocation = ""
+    @Volatile private var _overlayAddress  = ""
+    @Volatile private var _overlaySpeed    = "0 km/h"
+
+    var overlayLocation: String
+        get() = _overlayLocation
+        set(value) { _overlayLocation = value; overlayDirty.set(true) }
+    var overlayAddress: String
+        get() = _overlayAddress
+        set(value) { _overlayAddress = value; overlayDirty.set(true) }
+    var overlaySpeed: String
+        get() = _overlaySpeed
+        set(value) { _overlaySpeed = value; overlayDirty.set(true) }
 
     private val running = AtomicBoolean(false)
 
-    // Render thread (EGL + GL work must be on the same thread that holds the EGL context)
+    // Render thread (all EGL + GL work must be on the thread that owns the context)
     private var renderThread: HandlerThread? = null
     private var renderHandler: Handler? = null
 
@@ -103,22 +105,22 @@ class OverlayVideoRecorder(
     // EGL
     private var eglDisplay = EGL14.EGL_NO_DISPLAY
     private var eglContext = EGL14.EGL_NO_CONTEXT
-    private var eglSurface = EGL14.EGL_NO_SURFACE
+    private var eglSurface = EGL14.EGL_NO_SURFACE   // ← encoder input surface
 
     // GL objects
     private var camProgram     = 0
     private var overlayProgram = 0
-    private var cameraTexId    = 0
-    private var overlayTexId   = 0
+    private var cameraTexId    = 0  // GL_TEXTURE_EXTERNAL_OES  → unit 0
+    private var overlayTexId   = 0  // GL_TEXTURE_2D            → unit 1
     private lateinit var camSt: SurfaceTexture
     private val stMatrix = FloatArray(16)
 
-    // Pre-allocated quad buffers (initialised in setupGL)
-    private lateinit var vertBuf:     FloatBuffer  // full-screen quad positions
-    private lateinit var texBuf:      FloatBuffer  // camera UV (Y-normal)
-    private lateinit var texFlipBuf:  FloatBuffer  // overlay UV (Y-flipped for Canvas coords)
+    // Pre-allocated quad buffers
+    private lateinit var vertBuf:    FloatBuffer   // NDC positions
+    private lateinit var texBuf:     FloatBuffer   // camera UV (no flip needed — STMatrix handles it)
+    private lateinit var texFlipBuf: FloatBuffer   // overlay UV (Y-flipped: Canvas↔GL origin)
 
-    // Overlay bitmap — reused across frames, rebuilt once per second
+    // Overlay bitmap — reused across frames, rebuilt when dirty or ~once per second
     private var overlayBitmap: Bitmap? = null
     private var frameCount = 0
 
@@ -132,13 +134,14 @@ class OverlayVideoRecorder(
     private var startNs = 0L
     private var outputPfd: ParcelFileDescriptor? = null
 
+    // Single lock for MediaMuxer — it is NOT thread-safe
+    private val muxerLock = Any()
+
     private val vInfo = MediaCodec.BufferInfo()
     private val aInfo = MediaCodec.BufferInfo()
 
     // ── Public API ────────────────────────────────────────────────────────
 
-    /** Starts the recording pipeline. [onReady] is called (on the render thread) with the
-     *  Surface that Camera2 should target. */
     fun start(onReady: (Surface) -> Unit) {
         running.set(true)
         renderThread = HandlerThread("OVR-render").also { it.start() }
@@ -153,7 +156,6 @@ class OverlayVideoRecorder(
         }
     }
 
-    /** Stops recording, flushes encoders, closes muxer, then calls [onDone] on the main thread. */
     fun stop(onDone: () -> Unit) {
         running.set(false)
         renderHandler?.post {
@@ -170,7 +172,6 @@ class OverlayVideoRecorder(
     private fun setupEncoders() {
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
 
-        // Output file
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val cv = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, "DashCam_$ts.mp4")
@@ -190,7 +191,6 @@ class OverlayVideoRecorder(
             )
         }
 
-        // Video encoder — configure only; start happens after EGL surface is wired
         val vf = MediaFormat.createVideoFormat(MIME_VIDEO, videoSize.width, videoSize.height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, VIDEO_BITRATE)
@@ -199,10 +199,8 @@ class OverlayVideoRecorder(
         }
         videoEncoder = MediaCodec.createEncoderByType(MIME_VIDEO).also {
             it.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            // createInputSurface() must be called before start() → done in setupEGL()
         }
 
-        // Audio encoder
         val af = MediaFormat.createAudioFormat(MIME_AUDIO, AUDIO_SAMPLE_RATE, 1).apply {
             setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BITRATE)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
@@ -213,7 +211,7 @@ class OverlayVideoRecorder(
         }
     }
 
-    // ── EGL ───────────────────────────────────────────────────────────────
+    // ── EGL — single surface wired to the encoder input ───────────────────
 
     private fun setupEGL() {
         eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
@@ -223,7 +221,7 @@ class OverlayVideoRecorder(
             EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8,
             EGL14.EGL_ALPHA_SIZE, 8,
             EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-            EGLExt.EGL_RECORDABLE_ANDROID, 1,   // required for MediaCodec surfaces
+            EGLExt.EGL_RECORDABLE_ANDROID, 1,
             EGL14.EGL_NONE
         )
         val cfgs = arrayOfNulls<EGLConfig>(1); val n = IntArray(1)
@@ -232,7 +230,7 @@ class OverlayVideoRecorder(
         val ctxAttrs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE)
         eglContext = EGL14.eglCreateContext(eglDisplay, cfgs[0], EGL14.EGL_NO_CONTEXT, ctxAttrs, 0)
 
-        // Wire the encoder's input surface to EGL, then start encoder
+        // Wire the encoder's input surface to EGL — ALL eglSwapBuffers calls go to the encoder
         val encoderInputSurface = videoEncoder!!.createInputSurface()
         eglSurface = EGL14.eglCreateWindowSurface(
             eglDisplay, cfgs[0], encoderInputSurface, intArrayOf(EGL14.EGL_NONE), 0
@@ -249,15 +247,16 @@ class OverlayVideoRecorder(
         overlayProgram = buildProgram(VS_OVERLAY, FS_OVERLAY)
 
         val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
-        cameraTexId  = ids[0]; overlayTexId = ids[1]
+        cameraTexId  = ids[0]
+        overlayTexId = ids[1]
 
-        // Camera OES texture lives on unit 0
+        // Camera OES texture → texture unit 0
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
 
-        // Overlay 2D texture lives on unit 1 — must not share a unit with the OES texture
+        // Overlay 2D texture → texture unit 1 (must not share a unit with the OES texture)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
@@ -265,13 +264,18 @@ class OverlayVideoRecorder(
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
 
-        // Pre-allocate quad buffers (avoids per-frame GC pressure)
+        // Leave unit 0 active so updateTexImage() always operates on the right unit
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+
         vertBuf    = floatBuf(floatArrayOf(-1f,-1f,  1f,-1f,  -1f,1f,  1f,1f))
         texBuf     = floatBuf(floatArrayOf( 0f, 0f,  1f, 0f,   0f,1f,  1f,1f))
         texFlipBuf = floatBuf(floatArrayOf( 0f, 1f,  1f, 1f,   0f,0f,  1f,0f))
     }
 
     private fun setupCameraSurface() {
+        // Ensure the OES texture is on unit 0 before SurfaceTexture is created — some
+        // drivers call glBindTexture internally during the first updateTexImage().
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         camSt = SurfaceTexture(cameraTexId)
         camSt.setDefaultBufferSize(videoSize.width, videoSize.height)
         cameraSurface = Surface(camSt)
@@ -283,24 +287,29 @@ class OverlayVideoRecorder(
     private fun renderFrame() {
         if (!running.get()) return
 
+        // CRITICAL: updateTexImage() calls glBindTexture(GL_TEXTURE_EXTERNAL_OES, ...) on
+        // whichever texture unit is currently active. Force unit 0 so the camera OES texture
+        // is always updated there, keeping it separate from the overlay on unit 1.
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         camSt.updateTexImage()
         camSt.getTransformMatrix(stMatrix)
 
         GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        drawCameraTexture()
+        drawCameraTexture()   // Pass 1: camera → encoder surface
 
-        // Redraw overlay bitmap once per second (at FRAME_RATE cadence)
+        // Bake overlay when data changed (dirty flag) or once per second (clock tick)
         frameCount++
-        if (frameCount % FRAME_RATE == 1 || overlayBitmap == null) bakeOverlay()
-        drawOverlayTexture()
+        if (overlayDirty.getAndSet(false) || frameCount % FRAME_RATE == 0 || overlayBitmap == null) {
+            bakeOverlay()
+        }
+        drawOverlayTexture()  // Pass 2: GPS/time/speed on top
 
-        // Timestamp the frame for the encoder
         val nowNs = System.nanoTime()
         if (startNs == 0L) startNs = nowNs
         EGLExt.eglPresentationTimeANDROID(eglDisplay, eglSurface, nowNs - startNs)
-        EGL14.eglSwapBuffers(eglDisplay, eglSurface)
+        EGL14.eglSwapBuffers(eglDisplay, eglSurface)  // delivers completed frame to encoder
 
         drainVideo(eos = false)
     }
@@ -324,7 +333,6 @@ class OverlayVideoRecorder(
         GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
     }
 
-    /** Draws overlay text onto a Bitmap, uploads it to GPU. Called once per second. */
     private fun bakeOverlay() {
         val w = videoSize.width; val h = videoSize.height
         if (overlayBitmap == null)
@@ -334,37 +342,36 @@ class OverlayVideoRecorder(
         val canvas = Canvas(bmp)
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
-        val textSz  = h * 0.038f
-        val margin  = w * 0.015f
-        val lineH   = textSz * 1.35f
+        val textSz = h * 0.038f
+        val margin = w * 0.015f
+        val lineH  = textSz * 1.35f
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color    = Color.WHITE
             textSize = textSz
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setShadowLayer(6f, 2f, 2f, Color.BLACK)
         }
 
-        // ── Top-left: lat/lon + address ──────────────────────────────────
+        // Top-left: lat/lon + address
         var y = margin + textSz
-        overlayLocation.split("\n").forEach { line ->
-            canvas.drawText(line.trim(), margin, y, paint)
-            y += lineH
+        _overlayLocation.split("\n").forEach { line ->
+            if (line.isNotBlank()) { canvas.drawText(line.trim(), margin, y, paint); y += lineH }
         }
-        if (overlayAddress.isNotEmpty()) {
-            canvas.drawText(overlayAddress, margin, y, paint)
-        }
+        if (_overlayAddress.isNotEmpty()) canvas.drawText(_overlayAddress, margin, y, paint)
 
-        // ── Top-right: date/time ─────────────────────────────────────────
+        // Top-right: date/time
         val now = SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(Date())
         canvas.drawText(now, w - paint.measureText(now) - margin, margin + textSz, paint)
 
-        // ── Bottom-left: speed ───────────────────────────────────────────
-        canvas.drawText(overlaySpeed, margin, h - margin, paint)
+        // Bottom-left: speed
+        canvas.drawText(_overlaySpeed, margin, h - margin, paint)
 
+        // Upload to unit 1 — do NOT touch unit 0 (camera OES lives there)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
+        // Restore unit 0 so updateTexImage() is always safe on the next frame
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     }
 
     private fun drawOverlayTexture() {
@@ -382,12 +389,14 @@ class OverlayVideoRecorder(
         GLES20.glEnableVertexAttribArray(pos)
         GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertBuf)
         GLES20.glEnableVertexAttribArray(tex)
-        // Y-flipped coords: GL's origin is bottom-left, Canvas origin is top-left
         GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, 0, texFlipBuf)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
         GLES20.glDisable(GLES20.GL_BLEND)
+
+        // Restore unit 0 so the next updateTexImage() call lands on the right unit
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     }
 
     // ── Video codec drain ─────────────────────────────────────────────────
@@ -408,7 +417,9 @@ class OverlayVideoRecorder(
                     if (vInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) vInfo.size = 0
                     if (vInfo.size > 0 && muxerStarted) {
                         buf.position(vInfo.offset); buf.limit(vInfo.offset + vInfo.size)
-                        muxer!!.writeSampleData(videoTrack, buf, vInfo)
+                        synchronized(muxerLock) {
+                            muxer!!.writeSampleData(videoTrack, buf, vInfo)
+                        }
                     }
                     enc.releaseOutputBuffer(idx, false)
                     if (vInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break@loop
@@ -443,7 +454,7 @@ class OverlayVideoRecorder(
                 if (n > 0) {
                     val ptsUs = totalSamples * 1_000_000L / AUDIO_SAMPLE_RATE
                     encodeAudio(buf, n, ptsUs, eos = false)
-                    totalSamples += n / 2   // 16-bit PCM: 2 bytes per sample
+                    totalSamples += n / 2   // 16-bit PCM → 2 bytes per sample
                 }
             }
             rec.stop(); rec.release()
@@ -477,7 +488,9 @@ class OverlayVideoRecorder(
                     if (aInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 &&
                         aInfo.size > 0 && muxerStarted) {
                         buf.position(aInfo.offset); buf.limit(aInfo.offset + aInfo.size)
-                        muxer!!.writeSampleData(audioTrack, buf, aInfo)
+                        synchronized(muxerLock) {
+                            muxer!!.writeSampleData(audioTrack, buf, aInfo)
+                        }
                     }
                     enc.releaseOutputBuffer(idx, false)
                     if (aInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break@loop
@@ -486,7 +499,6 @@ class OverlayVideoRecorder(
         }
     }
 
-    /** Called on the render thread after the audio thread has joined. */
     private fun drainAudioFinal() {
         val enc = audioEncoder ?: return
         var more = true
@@ -499,7 +511,9 @@ class OverlayVideoRecorder(
                     if (aInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 &&
                         aInfo.size > 0 && muxerStarted) {
                         buf.position(aInfo.offset); buf.limit(aInfo.offset + aInfo.size)
-                        muxer!!.writeSampleData(audioTrack, buf, aInfo)
+                        synchronized(muxerLock) {
+                            muxer!!.writeSampleData(audioTrack, buf, aInfo)
+                        }
                     }
                     enc.releaseOutputBuffer(idx, false)
                     if (aInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) more = false
@@ -512,29 +526,26 @@ class OverlayVideoRecorder(
     private fun maybeStartMuxer() {
         if (!muxerStarted && videoTrack >= 0 && audioTrack >= 0) {
             muxer!!.start(); muxerStarted = true
+            Log.d(TAG, "Muxer started — videoTrack=$videoTrack audioTrack=$audioTrack")
         }
     }
 
     // ── Release ───────────────────────────────────────────────────────────
 
     private fun releaseAll() {
-        // EGL
         EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
         if (eglSurface != EGL14.EGL_NO_SURFACE) { EGL14.eglDestroySurface(eglDisplay, eglSurface); eglSurface = EGL14.EGL_NO_SURFACE }
         if (eglContext != EGL14.EGL_NO_CONTEXT) { EGL14.eglDestroyContext(eglDisplay, eglContext); eglContext = EGL14.EGL_NO_CONTEXT }
         if (eglDisplay != EGL14.EGL_NO_DISPLAY) { EGL14.eglTerminate(eglDisplay); eglDisplay = EGL14.EGL_NO_DISPLAY }
 
-        // Camera surface / texture
         cameraSurface?.release(); cameraSurface = null
         if (::camSt.isInitialized) camSt.release()
 
-        // Encoders
         try { videoEncoder?.stop() } catch (_: Exception) {}
         videoEncoder?.release(); videoEncoder = null
         try { audioEncoder?.stop() } catch (_: Exception) {}
         audioEncoder?.release(); audioEncoder = null
 
-        // Muxer
         try { if (muxerStarted) muxer?.stop(); muxer?.release() }
         catch (e: Exception) { Log.e(TAG, "muxer release", e) }
         muxer = null; muxerStarted = false
@@ -547,14 +558,27 @@ class OverlayVideoRecorder(
     // ── GL helpers ────────────────────────────────────────────────────────
 
     private fun buildProgram(vsSrc: String, fsSrc: String): Int {
-        fun compile(type: Int, src: String) = GLES20.glCreateShader(type).also {
-            GLES20.glShaderSource(it, src); GLES20.glCompileShader(it)
+        fun compile(type: Int, src: String): Int {
+            val shader = GLES20.glCreateShader(type)
+            GLES20.glShaderSource(shader, src)
+            GLES20.glCompileShader(shader)
+            val status = IntArray(1)
+            GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, status, 0)
+            if (status[0] == 0) {
+                Log.e(TAG, "Shader compile error: ${GLES20.glGetShaderInfoLog(shader)}")
+            }
+            return shader
         }
-        return GLES20.glCreateProgram().also {
-            GLES20.glAttachShader(it, compile(GLES20.GL_VERTEX_SHADER, vsSrc))
-            GLES20.glAttachShader(it, compile(GLES20.GL_FRAGMENT_SHADER, fsSrc))
-            GLES20.glLinkProgram(it)
+        val prog = GLES20.glCreateProgram()
+        GLES20.glAttachShader(prog, compile(GLES20.GL_VERTEX_SHADER, vsSrc))
+        GLES20.glAttachShader(prog, compile(GLES20.GL_FRAGMENT_SHADER, fsSrc))
+        GLES20.glLinkProgram(prog)
+        val status = IntArray(1)
+        GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS, status, 0)
+        if (status[0] == 0) {
+            Log.e(TAG, "Program link error: ${GLES20.glGetProgramInfoLog(prog)}")
         }
+        return prog
     }
 
     private fun floatBuf(arr: FloatArray): FloatBuffer =
