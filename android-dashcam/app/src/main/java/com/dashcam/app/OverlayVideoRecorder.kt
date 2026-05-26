@@ -32,6 +32,11 @@ class OverlayVideoRecorder(
         private const val AUDIO_SAMPLE_RATE = 44100
         private const val AUDIO_BITRATE = 128_000
 
+        // Set true to fill the overlay with solid RED instead of text.
+        // If the video turns red → GL pipeline is correct, fix is the blend formula / text paint.
+        // If the video stays camera-only → Pass 2 is not reaching the encoder at all.
+        private const val DEBUG_RED_OVERLAY = false
+
         // Camera OES texture — applies SurfaceTexture transform matrix
         private val VS_CAMERA = """
             attribute vec4 aPosition;
@@ -340,43 +345,78 @@ class OverlayVideoRecorder(
 
         val bmp = overlayBitmap!!
         val canvas = Canvas(bmp)
+
+        // ── Diagnostic: fill solid red to verify the GL pipeline reaches the encoder ──
+        // If the recorded video turns completely red, Pass 2 is rendering correctly and
+        // the issue is purely in the blend formula or text drawing.  Flip to false when done.
+        if (DEBUG_RED_OVERLAY) {
+            canvas.drawColor(Color.RED)
+            uploadOverlayBitmap(bmp)
+            return
+        }
+
+        // Clear to fully-transparent so the camera shows through wherever there is no text
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
         val textSz = h * 0.038f
         val margin = w * 0.015f
         val lineH  = textSz * 1.35f
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        // Paint: FILL style, no xfermode, anti-aliased — works on software Bitmap Canvas
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            style    = Paint.Style.FILL
             color    = Color.WHITE
             textSize = textSz
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            // Shadow is ignored on software canvas; use a stroke outline pass instead
+        }
+
+        // Semi-transparent black outline drawn first for readability on any background
+        val stroke = Paint(paint).apply {
+            style       = Paint.Style.STROKE
+            color       = Color.BLACK
+            strokeWidth = textSz * 0.08f
+            alpha       = 200
+        }
+
+        fun drawLabeled(text: String, x: Float, y: Float) {
+            if (text.isBlank()) return
+            canvas.drawText(text, x, y, stroke)
+            canvas.drawText(text, x, y, paint)
         }
 
         // Top-left: lat/lon + address
         var y = margin + textSz
         _overlayLocation.split("\n").forEach { line ->
-            if (line.isNotBlank()) { canvas.drawText(line.trim(), margin, y, paint); y += lineH }
+            if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
         }
-        if (_overlayAddress.isNotEmpty()) canvas.drawText(_overlayAddress, margin, y, paint)
+        if (_overlayAddress.isNotEmpty()) drawLabeled(_overlayAddress, margin, y)
 
         // Top-right: date/time
         val now = SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(Date())
-        canvas.drawText(now, w - paint.measureText(now) - margin, margin + textSz, paint)
+        drawLabeled(now, w - paint.measureText(now) - margin, margin + textSz)
 
         // Bottom-left: speed
-        canvas.drawText(_overlaySpeed, margin, h - margin, paint)
+        drawLabeled(_overlaySpeed, margin, h - margin)
 
+        uploadOverlayBitmap(bmp)
+    }
+
+    private fun uploadOverlayBitmap(bmp: Bitmap) {
         // Upload to unit 1 — do NOT touch unit 0 (camera OES lives there)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
+        checkGlError("texImage2D overlay")
         // Restore unit 0 so updateTexImage() is always safe on the next frame
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
     }
 
     private fun drawOverlayTexture() {
         GLES20.glEnable(GLES20.GL_BLEND)
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        // Android Bitmap.ARGB_8888 uses pre-multiplied alpha: correct formula is
+        // GL_ONE (not GL_SRC_ALPHA) so the alpha factor is not applied twice.
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
 
         GLES20.glUseProgram(overlayProgram)
         val pos = GLES20.glGetAttribLocation(overlayProgram, "aPosition")
@@ -391,6 +431,7 @@ class OverlayVideoRecorder(
         GLES20.glEnableVertexAttribArray(tex)
         GLES20.glVertexAttribPointer(tex, 2, GLES20.GL_FLOAT, false, 0, texFlipBuf)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+        checkGlError("drawOverlayTexture")
 
         GLES20.glDisableVertexAttribArray(pos); GLES20.glDisableVertexAttribArray(tex)
         GLES20.glDisable(GLES20.GL_BLEND)
@@ -579,6 +620,11 @@ class OverlayVideoRecorder(
             Log.e(TAG, "Program link error: ${GLES20.glGetProgramInfoLog(prog)}")
         }
         return prog
+    }
+
+    private fun checkGlError(op: String) {
+        val err = GLES20.glGetError()
+        if (err != GLES20.GL_NO_ERROR) Log.e(TAG, "GL error after $op: 0x${err.toString(16)}")
     }
 
     private fun floatBuf(arr: FloatArray): FloatBuffer =
