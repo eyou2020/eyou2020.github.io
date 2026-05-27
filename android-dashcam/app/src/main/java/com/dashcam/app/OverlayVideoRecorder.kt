@@ -280,6 +280,8 @@ class OverlayVideoRecorder(
         encoderEglSurface = EGL14.eglCreateWindowSurface(
             eglDisplay, eglConfig!!, encSurface, intArrayOf(EGL14.EGL_NONE), 0
         )
+        // MUST call start() AFTER createInputSurface() — encoder is inactive until then
+        videoEncoder!!.start()
         Log.d(TAG, "EGL encoder surface ready — encoderEglSurface=$encoderEglSurface")
     }
 
@@ -391,27 +393,38 @@ class OverlayVideoRecorder(
             bakeOverlay()
         }
 
-        // ── Pass to encoder (only while recording) ─────────────────────────
-        if (recording && encoderEglSurface != EGL14.EGL_NO_SURFACE) {
-            EGL14.eglMakeCurrent(eglDisplay, encoderEglSurface, encoderEglSurface, eglContext)
-            GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-            drawCameraTexture()
-            GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
-            drawOverlayTexture()
-            if (startCamNs == 0L) startCamNs = camSt.timestamp
-            EGLExt.eglPresentationTimeANDROID(eglDisplay, encoderEglSurface, camSt.timestamp - startCamNs)
-            EGL14.eglSwapBuffers(eglDisplay, encoderEglSurface)
-            drainVideo(eos = false)
-        }
-
-        // ── Pass to display (always — camera preview + overlay on screen) ──
-        EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
+        // ── Pass 1: display surface FIRST (always — preview on screen) ─────
+        val makeDisplayOk = EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
+        if (!makeDisplayOk) Log.e(TAG, "eglMakeCurrent(display) failed: 0x${EGL14.eglGetError().toString(16)}")
         GLES20.glViewport(0, 0, displayWidth, displayHeight)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         drawCameraTexture()
         drawOverlayTexture()
         EGL14.eglSwapBuffers(eglDisplay, displayEglSurface)
+
+        // ── Pass 2: encoder surface SECOND (only while recording) ──────────
+        if (recording && encoderEglSurface != EGL14.EGL_NO_SURFACE) {
+            val makeEncOk = EGL14.eglMakeCurrent(eglDisplay, encoderEglSurface, encoderEglSurface, eglContext)
+            if (!makeEncOk) Log.e(TAG, "eglMakeCurrent(encoder) failed: 0x${EGL14.eglGetError().toString(16)}")
+
+            // PTS MUST be set BEFORE any draw calls on the encoder surface
+            if (startCamNs == 0L) startCamNs = camSt.timestamp
+            EGLExt.eglPresentationTimeANDROID(
+                eglDisplay, encoderEglSurface, camSt.timestamp - startCamNs
+            )
+
+            GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+            drawCameraTexture()
+
+            // Re-upload overlay texture with encoder surface active to guarantee
+            // the GPU sees the correct bitmap data on this EGL surface context window
+            overlayBitmap?.let { uploadOverlayBitmap(it) }
+            drawOverlayTexture()
+
+            EGL14.eglSwapBuffers(eglDisplay, encoderEglSurface)
+            drainVideo(eos = false)
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
