@@ -48,12 +48,16 @@ class MainActivity : AppCompatActivity() {
         btnSaveName.setOnClickListener { saveDeviceName() }
         btnToggleService.setOnClickListener { toggleService() }
 
-        registerReceiver(
+        // Android 14+(targetSdk 34+)에서는 RECEIVER_EXPORTED/NOT_EXPORTED 필수.
+        // 없으면 IllegalArgumentException → 앱 즉시 크래시.
+        ContextCompat.registerReceiver(
+            this,
             eventReceiver,
             IntentFilter().apply {
                 addAction(HfpServerService.ACTION_DEVICE_CONNECTED)
                 addAction(HfpServerService.ACTION_DEVICE_DISCONNECTED)
-            }
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
         requestRequiredPermissions()
@@ -139,8 +143,22 @@ class MainActivity : AppCompatActivity() {
             PrefsHelper.setServiceEnabled(this, false)
             refreshUI()
         } else {
-            val btAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
-            if (!btAdapter.isEnabled) {
+            // BLUETOOTH_CONNECT 권한 확인 (Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                !hasPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+            ) {
+                Toast.makeText(this, "블루투스 권한을 허용해주세요", Toast.LENGTH_SHORT).show()
+                requestRequiredPermissions()
+                return
+            }
+            // isEnabled() 도 API 31+ 에서 BLUETOOTH_CONNECT 필요 → try-catch
+            val enabled = try {
+                (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter.isEnabled
+            } catch (e: SecurityException) {
+                Toast.makeText(this, "블루투스 권한이 필요합니다", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (!enabled) {
                 Toast.makeText(this, "블루투스를 먼저 켜주세요", Toast.LENGTH_SHORT).show()
                 return
             }

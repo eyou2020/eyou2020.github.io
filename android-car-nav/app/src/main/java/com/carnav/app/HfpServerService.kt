@@ -4,6 +4,7 @@ import android.app.*
 import android.bluetooth.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -61,7 +62,18 @@ class HfpServerService : Service() {
         }
 
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("대기 중 — 연결 기다리는 중"))
+        val notification = buildNotification("대기 중 — 연결 기다리는 중")
+        // Android 14+(API 34+) 타겟 시 foregroundServiceType 명시 필수.
+        // 없으면 ForegroundServiceDidNotStartInTimeException 또는 SecurityException.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         applyDeviceName()
         startAcceptLoop()
@@ -149,7 +161,10 @@ class HfpServerService : Service() {
     fun notifyConnected(address: String, name: String) {
         connectedDevices[address] = name
         updateNotification()
+        // RECEIVER_NOT_EXPORTED 수신기는 같은 패키지에서 보낸 브로드캐스트만 받음.
+        // setPackage()로 명시해야 Android 14+ 에서 확실히 전달됨.
         sendBroadcast(Intent(ACTION_DEVICE_CONNECTED).apply {
+            `package` = packageName
             putExtra(EXTRA_DEVICE_ADDRESS, address)
             putExtra(EXTRA_DEVICE_NAME, name)
         })
@@ -160,6 +175,7 @@ class HfpServerService : Service() {
         clientThreads.remove(address)
         updateNotification()
         sendBroadcast(Intent(ACTION_DEVICE_DISCONNECTED).apply {
+            `package` = packageName
             putExtra(EXTRA_DEVICE_ADDRESS, address)
             putExtra(EXTRA_DEVICE_NAME, name)
         })
