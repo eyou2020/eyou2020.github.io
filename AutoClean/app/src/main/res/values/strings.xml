@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoClean</string>
+
+    <!-- MainActivity -->
+    <string name="empty_schedules">예약된 자동 청소가 없습니다.\n+ 버튼을 눌러 추가하세요.</string>
+    <string name="run_now_started">즉시 실행을 시작했습니다.</string>
+
+    <!-- AddScheduleActivity -->
+    <string name="add_schedule">예약 추가</string>
+    <string name="edit_schedule">예약 수정</string>
+    <string name="select_folder_label">청소할 폴더</string>
+    <string name="select_folder">폴더 선택</string>
+    <string name="no_folder_selected">폴더가 선택되지 않았습니다.</string>
+    <string name="select_time_label">실행 시간</string>
+    <string name="change_time">시간 변경</string>
+    <string name="repeat_label">반복 설정</string>
+    <string name="delete_mode_label">삭제 방식</string>
+    <string name="save_schedule">저장</string>
+    <string name="schedule_saved">예약이 저장되었습니다.</string>
+    <string name="select_folder_first">폴더를 먼저 선택해주세요.</string>
+
+    <!-- Repeat Options -->
+    <string name="repeat_daily">매일</string>
+    <string name="repeat_weekday">평일</string>
+    <string name="repeat_weekend">주말</string>
+    <string name="repeat_once">한 번</string>
+    <string name="repeat_custom">직접 선택</string>
+
+    <!-- Days of Week -->
+    <string name="day_sun">일</string>
+    <string name="day_mon">월</string>
+    <string name="day_tue">화</string>
+    <string name="day_wed">수</string>
+    <string name="day_thu">목</string>
+    <string name="day_fri">금</string>
+    <string name="day_sat">토</string>
+
+    <!-- Delete Mode -->
+    <string name="delete_mode_trash">휴지통으로 이동</string>
+    <string name="delete_mode_permanent">영구 삭제</string>
+
+    <!-- Schedule Card -->
+    <string name="last_run">마지막 실행: %1$s</string>
+    <string name="no_run_yet">아직 실행되지 않았습니다.</string>
+    <string name="deleted_count">삭제된 파일: %1$d개</string>
+    <string name="run_now">지금 실행</string>
+    <string name="edit">수정</string>
+    <string name="delete">삭제</string>
+    <string name="cancel">취소</string>
+
+    <!-- Delete Dialog -->
+    <string name="delete_confirm_title">예약 삭제</string>
+    <string name="delete_confirm_message">\'%1$s\' 폴더의 예약을 삭제하시겠습니까?</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">AutoClean 알림</string>
+    <string name="notification_channel_description">파일 자동 삭제 알림</string>
+    <string name="notification_cleaning">파일을 정리하고 있습니다...</string>
+    <string name="notification_done_title">청소 완료</string>
+    <string name="notification_done_text">%1$s 폴더에서 %2$d개의 파일을 삭제했습니다.</string>
+    <string name="notification_error_title">%1$s 청소 실패</string>
+
+    <!-- About -->
+    <string name="about">정보</string>
+    <string name="about_message">AutoClean v1.0\n\n지정된 시간에 폴더를 자동으로 청소하는 앱입니다.\n\n© 2024 AutoClean</string>
+</resources>
