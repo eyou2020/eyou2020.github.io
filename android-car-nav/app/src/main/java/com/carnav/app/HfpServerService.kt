@@ -141,7 +141,7 @@ class HfpServerService : Service() {
                     val handler = ClientHandler(socket, this)
                     clientThreads[device.address] = handler
                     handler.start()
-                    notifyConnected(device.address, device.name ?: device.address)
+                    // notifyConnected is called by ClientHandler after SLC is established
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Server loop error: ${e.message}")
