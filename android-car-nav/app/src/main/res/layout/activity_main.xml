@@ -15,22 +15,22 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="차량 네비 에뮬레이터"
+            android:text="차량 네비 HFP 서버"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
             android:gravity="center"
             android:paddingTop="24dp"
-            android:paddingBottom="8dp" />
+            android:paddingBottom="4dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="블루투스 연결 시 자동 주행 모드 활성화"
+            android:text="다른 폰이 이 기기를 차량 핸즈프리로 인식합니다"
             android:textSize="13sp"
             android:textColor="@color/text_secondary"
             android:gravity="center"
-            android:paddingBottom="24dp" />
+            android:paddingBottom="20dp" />
 
         <!-- 서비스 상태 카드 -->
         <LinearLayout
@@ -44,7 +44,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="서비스 상태"
+                android:text="HFP 서버 상태"
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary"
                 android:paddingBottom="6dp" />
@@ -53,13 +53,13 @@
                 android:id="@+id/tv_service_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="○ 중지됨"
+                android:text="○ 서버 중지됨"
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@color/status_disconnected" />
         </LinearLayout>
 
-        <!-- 기기 선택 카드 -->
+        <!-- 블루투스 이름 설정 카드 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -71,41 +71,81 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="차량 블루투스 기기"
+                android:text="블루투스 기기 이름 (다른 폰에 표시되는 이름)"
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary"
                 android:paddingBottom="6dp" />
 
             <TextView
-                android:id="@+id/tv_selected_device"
+                android:id="@+id/tv_current_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="선택된 기기 없음"
-                android:textSize="15sp"
+                android:text="현재 BT 이름: Car Navigation"
+                android:textSize="14sp"
                 android:textColor="@color/text_primary"
-                android:paddingBottom="12dp" />
+                android:paddingBottom="10dp" />
 
-            <Button
-                android:id="@+id/btn_select_device"
+            <EditText
+                android:id="@+id/et_device_name"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="블루투스 기기 선택"
+                android:hint="예: Car Navigation"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_dim"
+                android:backgroundTint="@color/accent_blue"
+                android:padding="8dp"
+                android:inputType="text"
+                android:maxLines="1"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btn_save_name"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:text="이름 저장 및 적용"
                 android:textColor="@color/white"
                 android:backgroundTint="@color/accent_blue" />
         </LinearLayout>
 
-        <!-- 서비스 시작/중지 버튼 -->
+        <!-- 연결된 기기 카드 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="16dp"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="연결된 스마트폰"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tv_connected_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="연결된 기기 없음"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:lineSpacingMultiplier="1.5" />
+        </LinearLayout>
+
+        <!-- 서버 시작/중지 버튼 -->
         <Button
             android:id="@+id/btn_toggle_service"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="서비스 시작"
+            android:text="서버 시작"
             android:textSize="17sp"
             android:textColor="@color/white"
             android:backgroundTint="@color/accent_green"
             android:layout_marginBottom="20dp" />
 
-        <!-- 사용 방법 카드 -->
+        <!-- 사용 안내 카드 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -126,10 +166,10 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1. 차량 블루투스와 이 휴대폰을 먼저 페어링하세요\n2. 위에서 차량 블루투스 기기를 선택하세요\n3. [서비스 시작]을 누르세요\n4. 차량에 타면 블루투스가 자동 연결되고\n    주행 모드가 활성화됩니다\n5. 부팅 후에도 자동으로 재시작됩니다"
+                android:text="1. 원하는 블루투스 기기 이름 입력 후 저장\n   (다른 폰에 이 이름으로 표시됩니다)\n\n2. [서버 시작] 버튼을 누르세요\n\n3. 다른 스마트폰에서 블루투스 설정 열기\n   → 이 기기(공기계) 검색 및 페어링\n\n4. 연결되면 다른 폰이 이 기기를\n   &#34;핸즈프리 / 차량&#34; 기기로 인식합니다\n\n5. HFP 프로파일로 인식되어 통화 연동,\n   주행 모드 등이 자동 활성화됩니다"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary"
-                android:lineSpacingMultiplier="1.6" />
+                android:lineSpacingMultiplier="1.5" />
         </LinearLayout>
 
     </LinearLayout>

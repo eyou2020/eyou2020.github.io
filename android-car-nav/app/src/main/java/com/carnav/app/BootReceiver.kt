@@ -10,7 +10,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED && PrefsHelper.isServiceEnabled(context)) {
             ContextCompat.startForegroundService(
                 context,
-                Intent(context, BluetoothMonitorService::class.java)
+                Intent(context, HfpServerService::class.java)
             )
         }
     }

@@ -4,12 +4,10 @@
     <!-- Bluetooth (API 30 이하) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <!-- Bluetooth (API 31+) -->
+    <!-- Bluetooth (API 31+): 페어링 기기 연결 + 이름 변경에 필요 -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-
-    <!-- 화면 깨우기 -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
 
     <!-- 포그라운드 서비스 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -38,17 +36,12 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".DrivingModeActivity"
-            android:exported="false"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:screenOrientation="sensorLandscape"
-            android:theme="@style/Theme.CarNav.Driving" />
-
-        <!-- foregroundServiceType=connectedDevice: API 34 타겟 시 필수 -->
+        <!--
+            HFP RFCOMM 서버 서비스.
+            foregroundServiceType=connectedDevice: 블루투스 연결 처리 (API 34 타겟 필수)
+        -->
         <service
-            android:name=".BluetoothMonitorService"
+            android:name=".HfpServerService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
