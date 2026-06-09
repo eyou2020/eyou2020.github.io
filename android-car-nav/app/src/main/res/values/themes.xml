@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CarNav" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorPrimaryVariant">@color/accent_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:windowBackground">@color/bg_main</item>
+        <item name="android:statusBarColor">@color/bg_main</item>
+        <item name="android:navigationBarColor">@color/bg_main</item>
+    </style>
+
+    <!-- 주행 모드: 액션바 없음, 완전 다크 -->
+    <style name="Theme.CarNav.Driving" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">@color/bg_driving</item>
+        <item name="android:statusBarColor">@color/bg_driving</item>
+        <item name="android:navigationBarColor">@color/bg_driving</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

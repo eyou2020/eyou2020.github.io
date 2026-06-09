@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/bg_driving"
+    android:padding="24dp">
+
+    <!-- 시계 -->
+    <TextView
+        android:id="@+id/tv_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00:00"
+        android:textSize="68sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.04" />
+
+    <!-- 날짜 -->
+    <TextView
+        android:id="@+id/tv_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="날짜"
+        android:textSize="19sp"
+        android:textColor="@color/text_dim"
+        android:paddingBottom="12dp" />
+
+    <!-- 연결 상태 -->
+    <TextView
+        android:id="@+id/tv_connection_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="연결 확인 중..."
+        android:textSize="17sp"
+        android:textColor="@color/status_connected"
+        android:paddingBottom="28dp" />
+
+    <!-- 내비게이션 앱 버튼 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="14dp">
+
+        <Button
+            android:id="@+id/btn_google_maps"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:text="Google Maps"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/google_maps_color" />
+
+        <Button
+            android:id="@+id/btn_kakao_navi"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:text="카카오내비"
+            android:textColor="@color/bg_main"
+            android:backgroundTint="@color/kakao_color" />
+
+        <Button
+            android:id="@+id/btn_tmap"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:text="T map"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/tmap_color" />
+    </LinearLayout>
+
+    <!-- 종료 버튼 -->
+    <Button
+        android:id="@+id/btn_exit"
+        android:layout_width="180dp"
+        android:layout_height="46dp"
+        android:text="주행 모드 종료"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/danger_red" />
+
+</LinearLayout>

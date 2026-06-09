@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_main">#121212</color>
+    <color name="bg_driving">#0A0A0A</color>
+    <color name="card_bg">#1E1E1E</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="text_dim">#666666</color>
+    <color name="accent_blue">#2196F3</color>
+    <color name="accent_green">#43A047</color>
+    <color name="status_connected">#4CAF50</color>
+    <color name="status_disconnected">#F44336</color>
+    <color name="danger_red">#C62828</color>
+    <color name="google_maps_color">#4285F4</color>
+    <color name="kakao_color">#FEE500</color>
+    <color name="tmap_color">#E53935</color>
+</resources>
