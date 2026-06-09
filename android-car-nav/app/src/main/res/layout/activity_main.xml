@@ -59,6 +59,42 @@
                 android:textColor="@color/status_disconnected" />
         </LinearLayout>
 
+        <!-- 검색 가능 상태 카드 (핵심: 다른 폰이 스캔했을 때 보이려면 반드시 필요) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="16dp"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="블루투스 검색 가능 상태"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tv_discoverable_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="○ 검색 불가 — 다른 폰에서 이 기기를 찾을 수 없음"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/status_disconnected"
+                android:paddingBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_request_discoverable"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="검색 허용 (300초)"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/accent_blue" />
+        </LinearLayout>
+
         <!-- 블루투스 이름 설정 카드 -->
         <LinearLayout
             android:layout_width="match_parent"
