@@ -5,9 +5,14 @@ import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
+import android.graphics.Typeface
 import android.hardware.camera2.*
 import android.location.Geocoder
 import android.location.Location
@@ -26,7 +31,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import java.io.File
-import java.io.FileDescriptor
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
@@ -63,8 +67,8 @@ class MainActivity : AppCompatActivity() {
     private var backgroundThread: HandlerThread? = null
     private var videoSize = Size(1920, 1080)
 
-    // MediaRecorder
-    private var mediaRecorder: MediaRecorder? = null
+    // 녹화: 카메라 프레임 + 오버레이(Canvas DrawText)를 OpenGL ES로 합성하여 MediaCodec으로 인코딩
+    private val overlayRecorder = OverlayRecorder()
     private var isRecording = false
     private var currentVideoUri: Uri? = null
     private var currentPfd: ParcelFileDescriptor? = null
@@ -86,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             tvDateTime.text = now
+            if (isRecording) overlayRecorder.updateOverlay(buildOverlayBitmap())
             timeHandler.postDelayed(this, 1000)
         }
     }
@@ -280,7 +285,7 @@ class MainActivity : AppCompatActivity() {
     private fun closeCamera() {
         captureSession?.close(); captureSession = null
         cameraDevice?.close(); cameraDevice = null
-        mediaRecorder?.release(); mediaRecorder = null
+        if (overlayRecorder.isRecording) overlayRecorder.stop()
     }
 
     @Suppress("DEPRECATION")
@@ -308,14 +313,16 @@ class MainActivity : AppCompatActivity() {
         val previewSurface = Surface(st)
 
         try {
-            setupMediaRecorder()
+            createOutputFile()
+            overlayRecorder.start(videoSize, currentPfd!!.fileDescriptor)
         } catch (e: Exception) {
-            Log.e(TAG, "MediaRecorder setup failed", e)
+            Log.e(TAG, "Recorder setup failed", e)
             Toast.makeText(this, "녹화 준비 실패: ${e.message}", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val recorderSurface = mediaRecorder!!.surface
+        // 카메라 프레임은 GL로 합성(OverlayRecorder)되어 인코더로 들어간다.
+        val recorderSurface = overlayRecorder.cameraInputSurface!!
 
         try {
             val builder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
@@ -334,10 +341,10 @@ class MainActivity : AppCompatActivity() {
                         try {
                             session.setRepeatingRequest(builder.build(), null, backgroundHandler)
                             runOnUiThread {
-                                mediaRecorder?.start()
                                 isRecording = true
                                 updateRecordingUI()
                                 scheduleHideRecordButton()
+                                overlayRecorder.updateOverlay(buildOverlayBitmap())
                             }
                         } catch (e: Exception) {
                             Log.e(TAG, "Recording session error", e)
@@ -351,46 +358,30 @@ class MainActivity : AppCompatActivity() {
             )
         } catch (e: Exception) {
             Log.e(TAG, "startRecording error", e)
-            mediaRecorder?.release(); mediaRecorder = null
+            overlayRecorder.stop()
+            currentPfd?.close(); currentPfd = null
         }
     }
 
-    private fun setupMediaRecorder() {
+    /** MediaMuxer 출력 대상 파일을 만들고 [currentPfd]에 연다 */
+    private fun createOutputFile() {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
 
-        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(this)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
-        }
-
-        mediaRecorder!!.apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setVideoSource(MediaRecorder.VideoSource.SURFACE)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setVideoSize(videoSize.width, videoSize.height)
-            setVideoFrameRate(30)
-            setVideoEncodingBitRate(10_000_000)
-            setAudioSamplingRate(44100)
-            setAudioEncodingBitRate(128_000)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val cv = ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, "DashCam_$timestamp.mp4")
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam")
-                }
-                currentVideoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv)
-                currentPfd = contentResolver.openFileDescriptor(currentVideoUri!!, "w")
-                setOutputFile(currentPfd!!.fileDescriptor)
-            } else {
-                val dir = File(getExternalFilesDir(null), "DashCam").also { it.mkdirs() }
-                setOutputFile("${dir.absolutePath}/DashCam_$timestamp.mp4")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val cv = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, "DashCam_$timestamp.mp4")
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam")
             }
-            prepare()
+            currentVideoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv)
+            currentPfd = contentResolver.openFileDescriptor(currentVideoUri!!, "w")
+        } else {
+            val dir = File(getExternalFilesDir(null), "DashCam").also { it.mkdirs() }
+            val file = File(dir, "DashCam_$timestamp.mp4")
+            currentPfd = ParcelFileDescriptor.open(
+                file,
+                ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_TRUNCATE
+            )
         }
     }
 
@@ -405,9 +396,9 @@ class MainActivity : AppCompatActivity() {
             Log.e(TAG, "Stop repeating error", e)
         }
 
-        uiHandler.postDelayed({
-            try { mediaRecorder?.stop() } catch (e: Exception) { Log.e(TAG, "MediaRecorder stop error", e) }
-            mediaRecorder?.release(); mediaRecorder = null
+        // OverlayRecorder.stop()은 인코더 flush + muxer 종료까지 동기 대기하므로 백그라운드 스레드에서 실행
+        Thread {
+            overlayRecorder.stop()
             currentPfd?.close(); currentPfd = null
 
             runOnUiThread {
@@ -417,7 +408,65 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
             }
             startPreview()
-        }, 300)
+        }.start()
+    }
+
+    // ── 오버레이(Canvas DrawText) 비트맵 생성 ─────────────────────────────────
+    // 카메라 프레임 위에 OpenGL로 합성되어 녹화 파일에 그대로 저장된다.
+
+    private fun buildOverlayBitmap(): Bitmap {
+        val bitmap = Bitmap.createBitmap(videoSize.width, videoSize.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val textSize = videoSize.height * 0.045f
+        val margin = videoSize.height * 0.025f
+
+        val paint = Paint().apply {
+            color = Color.WHITE
+            this.textSize = textSize
+            typeface = Typeface.MONOSPACE
+            isFakeBoldText = true
+            isAntiAlias = true
+            setShadowLayer(6f, 2f, 2f, Color.argb(204, 0, 0, 0))
+        }
+
+        // 좌상단: GPS 좌표 + 주소
+        var y = margin + textSize
+        for (line in tvLocation.text.toString().split("\n")) {
+            canvas.drawText(line, margin, y, paint)
+            y += textSize * 1.2f
+        }
+        val address = tvAddress.text.toString()
+        if (address.isNotEmpty()) {
+            canvas.drawText(address, margin, y, paint)
+        }
+
+        // 우상단: 날짜/시간
+        val dateTime = tvDateTime.text.toString()
+        canvas.drawText(dateTime, videoSize.width - margin - paint.measureText(dateTime), margin + textSize, paint)
+
+        // 좌하단: 속도
+        val speedLines = tvSpeed.text.toString().split("\n")
+        var sy = videoSize.height - margin - (speedLines.size - 1) * textSize * 1.2f
+        for (line in speedLines) {
+            canvas.drawText(line, margin, sy, paint)
+            sy += textSize * 1.2f
+        }
+
+        // 우하단: REC 표시
+        val recPaint = Paint(paint).apply {
+            color = Color.RED
+            this.textSize = textSize * 0.7f
+        }
+        val recText = "● REC"
+        canvas.drawText(
+            recText,
+            videoSize.width - margin - recPaint.measureText(recText),
+            videoSize.height - margin,
+            recPaint
+        )
+
+        return bitmap
     }
 
     // ── Recording UI ───────────────────────────────────────────────────────
@@ -498,6 +547,8 @@ class MainActivity : AppCompatActivity() {
         val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
         tvSpeed.text = "$speedKmh\nkm/h"
 
+        if (isRecording) overlayRecorder.updateOverlay(buildOverlayBitmap())
+
         fetchAddress(location)
     }
 
@@ -513,7 +564,10 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
                 val text = formatAddress(addresses.firstOrNull())
-                runOnUiThread { tvAddress.text = text }
+                runOnUiThread {
+                    tvAddress.text = text
+                    if (isRecording) overlayRecorder.updateOverlay(buildOverlayBitmap())
+                }
             }
         } else {
             geocoderExecutor.execute {
@@ -521,7 +575,10 @@ class MainActivity : AppCompatActivity() {
                     @Suppress("DEPRECATION")
                     val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
                     val text = formatAddress(addresses?.firstOrNull())
-                    runOnUiThread { tvAddress.text = text }
+                    runOnUiThread {
+                        tvAddress.text = text
+                        if (isRecording) overlayRecorder.updateOverlay(buildOverlayBitmap())
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Geocoder error", e)
                 }
