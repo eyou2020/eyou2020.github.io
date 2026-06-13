@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <!-- Top slider -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M6,10 L30,10"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,10 m-3,0 a3,3 0,1,0 6,0 a3,3 0,1,0 -6,0"/>
+    <!-- Middle slider -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M6,18 L30,18"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14,18 m-3,0 a3,3 0,1,0 6,0 a3,3 0,1,0 -6,0"/>
+    <!-- Bottom slider -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M6,26 L30,26"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,26 m-3,0 a3,3 0,1,0 6,0 a3,3 0,1,0 -6,0"/>
+</vector>

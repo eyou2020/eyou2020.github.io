@@ -3,13 +3,18 @@ package com.dashcam.app
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
 import android.os.*
+import android.text.InputType
 import android.util.Log
 import android.util.Size
 import android.view.*
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
@@ -28,6 +33,12 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_PERMISSIONS = 1001
         private const val HIDE_DELAY_MS = 3000L
 
+        private const val PREFS_NAME = "dashcam_settings"
+        private const val KEY_SEGMENT_MINUTES = "segment_minutes"
+        private const val DEFAULT_SEGMENT_MINUTES = 15
+        private const val MIN_SEGMENT_MINUTES = 1
+        private const val MAX_SEGMENT_MINUTES = 60
+
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
@@ -43,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvDateTime:   TextView
     private lateinit var btnRecord:    ImageButton
     private lateinit var btnExit:      ImageButton
+    private lateinit var btnSettings:  ImageButton
     private lateinit var tvRecording:  TextView
 
     // ── Recorder ──────────────────────────────────────────────────────────
@@ -102,6 +114,7 @@ class MainActivity : AppCompatActivity() {
         tvDateTime   = findViewById(R.id.tvDateTime)
         btnRecord    = findViewById(R.id.btnRecord)
         btnExit      = findViewById(R.id.btnExit)
+        btnSettings  = findViewById(R.id.btnSettings)
         tvRecording  = findViewById(R.id.tvRecording)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
@@ -113,6 +126,7 @@ class MainActivity : AppCompatActivity() {
             if (isRecording) stopRecording()
             finishAndRemoveTask()
         }
+        btnSettings.setOnClickListener { showSegmentDurationDialog() }
         surfaceView.setOnClickListener { showControls() }
 
         // SurfaceHolder callback — start/stop the recorder with the surface lifecycle
@@ -185,6 +199,7 @@ class MainActivity : AppCompatActivity() {
             it.overlayLocation = lastOverlayLocation
             it.overlayAddress  = lastOverlayAddress
             it.overlaySpeed    = lastOverlaySpeed
+            it.segmentDurationMinutes = loadSegmentMinutes()
         }
         overlayRecorder = recorder
         // 'this' is a LifecycleOwner (AppCompatActivity implements it)
@@ -236,16 +251,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
-        btnRecord.visibility = View.VISIBLE
-        btnExit.visibility   = View.VISIBLE
+        btnRecord.visibility   = View.VISIBLE
+        btnExit.visibility     = View.VISIBLE
+        btnSettings.visibility = View.VISIBLE
         uiHandler.removeCallbacks(hideRunnable)
         if (isRecording) scheduleHideControls()
     }
 
     private fun hideControls() {
         if (isRecording) {
-            btnRecord.visibility = View.GONE
-            btnExit.visibility   = View.GONE
+            btnRecord.visibility   = View.GONE
+            btnExit.visibility     = View.GONE
+            btnSettings.visibility = View.GONE
         }
     }
 
@@ -346,5 +363,49 @@ class MainActivity : AppCompatActivity() {
         address.thoroughfare?.let { parts.add(it) }
         if (parts.isNotEmpty()) return parts.joinToString(" ")
         return address.getAddressLine(0)?.take(50) ?: ""
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Settings — recording segment (loop) duration
+    // ══════════════════════════════════════════════════════════════════════
+
+    private fun prefs(): SharedPreferences =
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun loadSegmentMinutes(): Int =
+        prefs().getInt(KEY_SEGMENT_MINUTES, DEFAULT_SEGMENT_MINUTES)
+
+    private fun saveSegmentMinutes(minutes: Int) {
+        prefs().edit().putInt(KEY_SEGMENT_MINUTES, minutes).apply()
+        overlayRecorder?.segmentDurationMinutes = minutes
+    }
+
+    private fun showSegmentDurationDialog() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(loadSegmentMinutes().toString())
+            setSelection(text.length)
+        }
+        val padding = (16 * resources.displayMetrics.density).toInt()
+        val container = android.widget.FrameLayout(this).apply {
+            setPadding(padding, padding / 2, padding, 0)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.segment_duration_title)
+            .setMessage(R.string.segment_duration_message)
+            .setView(container)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val minutes = input.text.toString().toIntOrNull()
+                if (minutes == null || minutes < MIN_SEGMENT_MINUTES || minutes > MAX_SEGMENT_MINUTES) {
+                    Toast.makeText(this, R.string.segment_duration_invalid, Toast.LENGTH_SHORT).show()
+                } else {
+                    saveSegmentMinutes(minutes)
+                    Toast.makeText(this, getString(R.string.segment_duration_saved, minutes), Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 }

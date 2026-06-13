@@ -3,4 +3,9 @@
     <string name="app_name">블랙박스</string>
     <string name="record_button_desc">녹화 버튼</string>
     <string name="exit_button_desc">종료 버튼</string>
+    <string name="settings_button_desc">설정 버튼</string>
+    <string name="segment_duration_title">녹화 시간 설정</string>
+    <string name="segment_duration_message">영상을 나눠 저장할 시간(분)을 입력하세요.</string>
+    <string name="segment_duration_saved">녹화 시간이 %d분으로 설정되었습니다.</string>
+    <string name="segment_duration_invalid">1~60 사이의 숫자를 입력하세요.</string>
 </resources>

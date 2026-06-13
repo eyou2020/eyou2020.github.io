@@ -154,6 +154,18 @@
             android:elevation="4dp"
             android:contentDescription="@string/exit_button_desc" />
 
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginStart="24dp"
+            android:background="@drawable/btn_record_bg"
+            android:src="@drawable/ic_settings"
+            android:scaleType="center"
+            android:padding="14dp"
+            android:elevation="4dp"
+            android:contentDescription="@string/settings_button_desc" />
+
     </LinearLayout>
 
 </FrameLayout>

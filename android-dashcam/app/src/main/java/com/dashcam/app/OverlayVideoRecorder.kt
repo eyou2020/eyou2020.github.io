@@ -53,6 +53,7 @@ class OverlayVideoRecorder(
         private const val FRAME_RATE   = 30
         private const val AUDIO_SAMPLE_RATE = 44100
         private const val AUDIO_BITRATE     = 128_000
+        private const val DEFAULT_SEGMENT_MINUTES = 15
 
         // Flip to true → overlay solid red; verifies the FBO composite path reaches the encoder.
         private const val DEBUG_RED_OVERLAY = false
@@ -168,6 +169,14 @@ class OverlayVideoRecorder(
     private val vInfo = MediaCodec.BufferInfo()
     private val aInfo = MediaCodec.BufferInfo()
 
+    // ── Segmented (loop) recording ──────────────────────────────────────────
+    @Volatile private var segmentDurationNs = DEFAULT_SEGMENT_MINUTES * 60 * 1_000_000_000L
+
+    /** Max length of a single recorded file, in minutes. Takes effect from the next segment. */
+    var segmentDurationMinutes: Int
+        get() = (segmentDurationNs / 60_000_000_000L).toInt()
+        set(minutes) { segmentDurationNs = minutes.toLong() * 60_000_000_000L }
+
     // ── CameraX ────────────────────────────────────────────────────────────
     private var cameraProvider: ProcessCameraProvider? = null
 
@@ -222,6 +231,25 @@ class OverlayVideoRecorder(
             finalizeEncoding()
             Handler(Looper.getMainLooper()).post(onDone)
         }
+    }
+
+    /**
+     * Loop recording: finalize the current file and immediately start a new
+     * one. Runs on the render thread; [recording] stays true throughout.
+     */
+    private fun rotateSegment() {
+        Log.d(TAG, "Segment duration reached — starting new file")
+        drainVideo(eos = true)
+        audioThread?.interrupt()
+        audioThread?.join(2000)
+        drainAudioFinal()
+        finalizeEncoding()
+
+        muxerStarted = false
+        videoTrack = -1; audioTrack = -1
+        setupEncoders()
+        setupEncoderEGLSurface()
+        startAudio()
     }
 
     /** Tear down the entire pipeline (call from onDestroy / surfaceDestroyed). */
@@ -479,11 +507,19 @@ class OverlayVideoRecorder(
 
         // ── Pass 2: blit composite → encoder surface (only while recording) ─
         if (recording && encoderEglSurface != EGL14.EGL_NO_SURFACE) {
+            // PTS MUST be set BEFORE any draw calls on the encoder surface
+            if (startCamNs == 0L) startCamNs = camSt.timestamp
+
+            // Loop recording: once the current file reaches the configured
+            // length, finalize it and seamlessly start a new one.
+            if (camSt.timestamp - startCamNs >= segmentDurationNs) {
+                rotateSegment()
+                startCamNs = camSt.timestamp
+            }
+
             val makeEncOk = EGL14.eglMakeCurrent(eglDisplay, encoderEglSurface, encoderEglSurface, eglContext)
             if (!makeEncOk) Log.e(TAG, "eglMakeCurrent(encoder) failed: 0x${EGL14.eglGetError().toString(16)}")
 
-            // PTS MUST be set BEFORE any draw calls on the encoder surface
-            if (startCamNs == 0L) startCamNs = camSt.timestamp
             EGLExt.eglPresentationTimeANDROID(
                 eglDisplay, encoderEglSurface, camSt.timestamp - startCamNs
             )
