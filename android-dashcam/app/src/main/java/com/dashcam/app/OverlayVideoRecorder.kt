@@ -55,7 +55,7 @@ class OverlayVideoRecorder(
         private const val AUDIO_BITRATE     = 128_000
 
         // Flip to true → overlay solid red; verifies the FBO composite path reaches the encoder.
-        private const val DEBUG_RED_OVERLAY = true
+        private const val DEBUG_RED_OVERLAY = false
 
         // ── Camera OES shader (samplerExternalOES + STMatrix) ──────────────
         private val VS_CAMERA = """
