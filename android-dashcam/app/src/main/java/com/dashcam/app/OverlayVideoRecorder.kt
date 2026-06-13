@@ -30,10 +30,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Architecture:
  *   CameraX Preview → camSt (OES texture)
  *     ↓ renderFrame() on render thread
- *   GL Pass 1 (camera OES) + Pass 2 (overlay bitmap)
- *     ↓ eglSwapBuffers
- *   encoderEglSurface → MediaCodec → MediaMuxer → MP4  (while recording)
- *   displayEglSurface → SurfaceView                    (always, for preview)
+ *   Off-screen FBO: drawCameraTexture() + drawTexturedQuad(overlay) → compositeTexId
+ *     ↓ blit (drawTexturedQuad) — same composite texture, twice
+ *   displayEglSurface  → SurfaceView                    (always, for preview)
+ *   encoderEglSurface  → MediaCodec → MediaMuxer → MP4  (while recording)
  *
  * Lifecycle:
  *   prepare()        → start GL preview (no encoder)
@@ -54,7 +54,7 @@ class OverlayVideoRecorder(
         private const val AUDIO_SAMPLE_RATE = 44100
         private const val AUDIO_BITRATE     = 128_000
 
-        // Flip to true → overlay solid red; verifies Pass 2 reaches encoder.
+        // Flip to true → overlay solid red; verifies the FBO composite path reaches the encoder.
         private const val DEBUG_RED_OVERLAY = false
 
         // ── Camera OES shader (samplerExternalOES + STMatrix) ──────────────
@@ -77,8 +77,9 @@ class OverlayVideoRecorder(
                 gl_FragColor = texture2D(uTexture, vTexCoord);
             }""".trimIndent()
 
-        // ── Overlay 2-D shader (sampler2D, no STMatrix) ────────────────────
-        private val VS_OVERLAY = """
+        // ── Generic 2-D shader (sampler2D) — used for overlay bitmap AND
+        //    for blitting the FBO composite texture to display/encoder ────
+        private val VS_TEX = """
             attribute vec4 aPosition;
             attribute vec2 aTextureCoord;
             varying vec2 vTextureCoord;
@@ -87,12 +88,12 @@ class OverlayVideoRecorder(
                 vTextureCoord = aTextureCoord;
             }""".trimIndent()
 
-        private val FS_OVERLAY = """
+        private val FS_TEX = """
             precision mediump float;
             varying vec2 vTextureCoord;
-            uniform sampler2D uOverlayTexture;
+            uniform sampler2D uTexture;
             void main() {
-                gl_FragColor = texture2D(uOverlayTexture, vTextureCoord);
+                gl_FragColor = texture2D(uTexture, vTextureCoord);
             }""".trimIndent()
     }
 
@@ -115,9 +116,11 @@ class OverlayVideoRecorder(
 
     // ── GL programs & textures ─────────────────────────────────────────────
     private var camProgram     = 0
-    private var overlayProgram = 0
-    private var cameraTexId    = 0
-    private var overlayTexId   = 0
+    private var texProgram     = 0   // generic sampler2D program (overlay bitmap + composite blit)
+    private var cameraTexId    = 0   // OES — camera frames
+    private var overlayTexId   = 0   // 2D  — Canvas-drawn GPS/speed/time bitmap
+    private var compositeTexId = 0   // 2D  — FBO color attachment (camera + overlay merged)
+    private var fboId          = 0
     private lateinit var camSt: SurfaceTexture
     private var cameraSurface: Surface? = null
     private val stMatrix = FloatArray(16)
@@ -125,12 +128,13 @@ class OverlayVideoRecorder(
     // Cached attribute / uniform locations (populated once in setupGL)
     private var camPosLoc  = -1;  private var camTexLoc  = -1
     private var camStmLoc  = -1;  private var camSampLoc = -1
-    private var ovPosLoc   = -1;  private var ovTexLoc   = -1;  private var ovSampLoc = -1
+    private var texPosLoc  = -1;  private var texTexLoc  = -1;  private var texSampLoc = -1
 
-    // Vertex buffers — camera quad (separate pos+uv) and overlay quad (interleaved)
-    private lateinit var vertBuf:         FloatBuffer
-    private lateinit var texBuf:          FloatBuffer
-    private lateinit var overlayCoordBuf: FloatBuffer
+    // Vertex buffers
+    private lateinit var vertBuf:         FloatBuffer   // camera quad position
+    private lateinit var texBuf:          FloatBuffer   // camera quad UV
+    private lateinit var overlayCoordBuf: FloatBuffer   // overlay bitmap quad (interleaved pos+uv, Y-flipped)
+    private lateinit var blitCoordBuf:    FloatBuffer   // FBO composite blit quad (interleaved pos+uv, natural)
 
     // ── Overlay data ───────────────────────────────────────────────────────
     private val overlayDirty = AtomicBoolean(true)
@@ -290,31 +294,61 @@ class OverlayVideoRecorder(
     // ══════════════════════════════════════════════════════════════════════
 
     private fun setupGL() {
-        camProgram     = buildProgram(VS_CAMERA,  FS_CAMERA)
-        overlayProgram = buildProgram(VS_OVERLAY, FS_OVERLAY)
+        camProgram = buildProgram(VS_CAMERA, FS_CAMERA)
+        texProgram = buildProgram(VS_TEX,    FS_TEX)
 
-        val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
-        cameraTexId  = ids[0]
-        overlayTexId = ids[1]
-        Log.d(TAG, "glGenTextures → camera=$cameraTexId  overlay=$overlayTexId")
+        val texIds = IntArray(3); GLES20.glGenTextures(3, texIds, 0)
+        cameraTexId    = texIds[0]
+        overlayTexId   = texIds[1]
+        compositeTexId = texIds[2]
+        Log.d(TAG, "glGenTextures → camera=$cameraTexId overlay=$overlayTexId composite=$compositeTexId")
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
 
+        // Camera OES texture
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTexId)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
 
+        // Overlay bitmap texture (2D)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
 
+        // Composite texture — off-screen FBO color attachment (camera + overlay merged)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, compositeTexId)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
+            videoSize.width, videoSize.height, 0,
+            GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null
+        )
+
+        // FBO — camera + overlay are composited here once per frame
+        val fboIds = IntArray(1); GLES20.glGenFramebuffers(1, fboIds, 0)
+        fboId = fboIds[0]
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+            GLES20.GL_TEXTURE_2D, compositeTexId, 0
+        )
+        val fboStatus = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+        if (fboStatus != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            Log.e(TAG, "FBO incomplete: 0x${fboStatus.toString(16)}")
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+
         // Camera quad — separate position and UV buffers
         vertBuf = floatBuf(floatArrayOf(-1f,-1f,  1f,-1f,  -1f,1f,  1f,1f))
         texBuf  = floatBuf(floatArrayOf( 0f, 0f,  1f, 0f,   0f,1f,  1f,1f))
 
-        // Overlay quad — interleaved (x, y, u, v), stride = 16 bytes
+        // Overlay bitmap quad — interleaved (x, y, u, v). Canvas row 0 (top of bitmap) → V=1
         overlayCoordBuf = floatBuf(floatArrayOf(
             -1f, -1f,  0f, 1f,
              1f, -1f,  1f, 1f,
@@ -322,17 +356,25 @@ class OverlayVideoRecorder(
              1f,  1f,  1f, 0f
         ))
 
+        // Composite blit quad — natural mapping (FBO texture origin matches NDC origin)
+        blitCoordBuf = floatBuf(floatArrayOf(
+            -1f, -1f,  0f, 0f,
+             1f, -1f,  1f, 0f,
+            -1f,  1f,  0f, 1f,
+             1f,  1f,  1f, 1f
+        ))
+
         // Cache program handles (once, after link)
         camPosLoc  = GLES20.glGetAttribLocation(camProgram,  "aPosition")
         camTexLoc  = GLES20.glGetAttribLocation(camProgram,  "aTexCoord")
         camStmLoc  = GLES20.glGetUniformLocation(camProgram, "uSTMatrix")
         camSampLoc = GLES20.glGetUniformLocation(camProgram, "uTexture")
-        Log.d(TAG, "camera  locs — pos=$camPosLoc tex=$camTexLoc stm=$camStmLoc samp=$camSampLoc")
+        Log.d(TAG, "camera locs — pos=$camPosLoc tex=$camTexLoc stm=$camStmLoc samp=$camSampLoc")
 
-        ovPosLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aPosition")
-        ovTexLoc  = GLES20.glGetAttribLocation(overlayProgram,  "aTextureCoord")
-        ovSampLoc = GLES20.glGetUniformLocation(overlayProgram, "uOverlayTexture")
-        Log.d(TAG, "overlay locs — pos=$ovPosLoc tex=$ovTexLoc samp=$ovSampLoc")
+        texPosLoc  = GLES20.glGetAttribLocation(texProgram,  "aPosition")
+        texTexLoc  = GLES20.glGetAttribLocation(texProgram,  "aTextureCoord")
+        texSampLoc = GLES20.glGetUniformLocation(texProgram, "uTexture")
+        Log.d(TAG, "tex locs — pos=$texPosLoc tex=$texTexLoc samp=$texSampLoc")
     }
 
     private fun setupCameraSurface() {
@@ -393,16 +435,23 @@ class OverlayVideoRecorder(
             bakeOverlay()
         }
 
-        // ── Pass 1: display surface FIRST (always — preview on screen) ─────
+        // ── Compose once: camera + overlay → off-screen FBO (compositeTexId) ──
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
+        GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        drawCameraTexture()
+        drawTexturedQuad(overlayTexId, overlayCoordBuf, blend = true)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+        // ── Pass 1: blit composite → display surface (always) ──────────────
         val makeDisplayOk = EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
         if (!makeDisplayOk) Log.e(TAG, "eglMakeCurrent(display) failed: 0x${EGL14.eglGetError().toString(16)}")
         GLES20.glViewport(0, 0, displayWidth, displayHeight)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        drawCameraTexture()
-        drawOverlayTexture()
+        drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
         EGL14.eglSwapBuffers(eglDisplay, displayEglSurface)
 
-        // ── Pass 2: encoder surface SECOND (only while recording) ──────────
+        // ── Pass 2: blit composite → encoder surface (only while recording) ─
         if (recording && encoderEglSurface != EGL14.EGL_NO_SURFACE) {
             val makeEncOk = EGL14.eglMakeCurrent(eglDisplay, encoderEglSurface, encoderEglSurface, eglContext)
             if (!makeEncOk) Log.e(TAG, "eglMakeCurrent(encoder) failed: 0x${EGL14.eglGetError().toString(16)}")
@@ -415,12 +464,7 @@ class OverlayVideoRecorder(
 
             GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-            drawCameraTexture()
-
-            // Re-upload overlay texture with encoder surface active to guarantee
-            // the GPU sees the correct bitmap data on this EGL surface context window
-            overlayBitmap?.let { uploadOverlayBitmap(it) }
-            drawOverlayTexture()
+            drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
 
             EGL14.eglSwapBuffers(eglDisplay, encoderEglSurface)
             drainVideo(eos = false)
@@ -431,6 +475,7 @@ class OverlayVideoRecorder(
     // GL draw calls
     // ══════════════════════════════════════════════════════════════════════
 
+    /** Pass 1 of FBO composite — draws the camera OES texture (full quad, with STMatrix). */
     private fun drawCameraTexture() {
         GLES20.glUseProgram(camProgram)
 
@@ -450,42 +495,47 @@ class OverlayVideoRecorder(
 
         GLES20.glDisableVertexAttribArray(camPosLoc)
         GLES20.glDisableVertexAttribArray(camTexLoc)
-        // Unbind OES so Pass 2's sampler2D sees only the 2D binding on unit 0
+        // Unbind OES so the following sampler2D draw sees only the 2D binding on unit 0
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
     }
 
-    private fun drawOverlayTexture() {
-        overlayCoordBuf.rewind()
-        if (ovPosLoc < 0 || ovTexLoc < 0) {
-            Log.w(TAG, "drawOverlayTexture: invalid attrib locs — skip")
+    /**
+     * Generic textured fullscreen quad using [texProgram].
+     * Used for: (a) overlay bitmap → FBO (blended), (b) composite FBO texture → display/encoder (opaque).
+     */
+    private fun drawTexturedQuad(texId: Int, coordBuf: FloatBuffer, blend: Boolean) {
+        if (texPosLoc < 0 || texTexLoc < 0) {
+            Log.w(TAG, "drawTexturedQuad: invalid attrib locs — skip")
             return
         }
 
-        GLES20.glEnable(GLES20.GL_BLEND)
-        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
-        GLES20.glUseProgram(overlayProgram)
+        if (blend) {
+            GLES20.glEnable(GLES20.GL_BLEND)
+            GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        }
+        GLES20.glUseProgram(texProgram)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTexId)
-        GLES20.glUniform1i(ovSampLoc, 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
+        GLES20.glUniform1i(texSampLoc, 0)
 
         val stride = 16
-        overlayCoordBuf.position(0)
-        GLES20.glVertexAttribPointer(ovPosLoc, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
-        GLES20.glEnableVertexAttribArray(ovPosLoc)
+        coordBuf.position(0)
+        GLES20.glVertexAttribPointer(texPosLoc, 2, GLES20.GL_FLOAT, false, stride, coordBuf)
+        GLES20.glEnableVertexAttribArray(texPosLoc)
 
-        overlayCoordBuf.position(2)
-        GLES20.glVertexAttribPointer(ovTexLoc, 2, GLES20.GL_FLOAT, false, stride, overlayCoordBuf)
-        GLES20.glEnableVertexAttribArray(ovTexLoc)
+        coordBuf.position(2)
+        GLES20.glVertexAttribPointer(texTexLoc, 2, GLES20.GL_FLOAT, false, stride, coordBuf)
+        GLES20.glEnableVertexAttribArray(texTexLoc)
 
-        overlayCoordBuf.rewind()
+        coordBuf.rewind()
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        checkGlError("drawOverlayTexture")
+        checkGlError("drawTexturedQuad")
 
-        GLES20.glDisableVertexAttribArray(ovPosLoc)
-        GLES20.glDisableVertexAttribArray(ovTexLoc)
-        GLES20.glDisable(GLES20.GL_BLEND)
-        overlayCoordBuf.rewind()
+        GLES20.glDisableVertexAttribArray(texPosLoc)
+        GLES20.glDisableVertexAttribArray(texTexLoc)
+        if (blend) GLES20.glDisable(GLES20.GL_BLEND)
+        coordBuf.rewind()
     }
 
     // ══════════════════════════════════════════════════════════════════════
