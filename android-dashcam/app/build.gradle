@@ -43,6 +43,9 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    // LifecycleService — lets the recorder run as a foreground service with its
+    // own LifecycleOwner, independent of the Activity (background recording)
+    implementation 'androidx.lifecycle:lifecycle-service:2.7.0'
     // FusedLocationProviderClient & LocationRequest
     implementation 'com.google.android.gms:play-services-location:21.2.0'
     // CameraX — lifecycle-aware camera management (Preview UseCase feeds our OES texture)

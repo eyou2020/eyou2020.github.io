@@ -8,4 +8,8 @@
     <string name="segment_duration_message">영상을 나눠 저장할 시간(분)을 입력하세요.</string>
     <string name="segment_duration_saved">녹화 시간이 %d분으로 설정되었습니다.</string>
     <string name="segment_duration_invalid">1~60 사이의 숫자를 입력하세요.</string>
+    <string name="notification_channel_name">블랙박스 녹화</string>
+    <string name="notification_channel_description">앱이 백그라운드에 있어도 녹화를 계속합니다.</string>
+    <string name="notification_recording">녹화 중입니다.</string>
+    <string name="notification_standby">블랙박스가 실행 중입니다.</string>
 </resources>

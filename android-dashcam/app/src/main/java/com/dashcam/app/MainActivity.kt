@@ -2,34 +2,34 @@ package com.dashcam.app
 
 import android.Manifest
 import android.animation.ObjectAnimator
-import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.location.Geocoder
-import android.location.Location
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.text.InputType
-import android.util.Log
-import android.util.Size
-import android.view.*
+import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.*
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG = "DashCam"
         private const val REQUEST_PERMISSIONS = 1001
         private const val HIDE_DELAY_MS = 3000L
 
@@ -39,53 +39,55 @@ class MainActivity : AppCompatActivity() {
         private const val MIN_SEGMENT_MINUTES = 1
         private const val MAX_SEGMENT_MINUTES = 60
 
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+        private val REQUIRED_PERMISSIONS: Array<String> = buildList {
+            add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.toTypedArray()
     }
 
     // ── UI ─────────────────────────────────────────────────────────────────
     private lateinit var surfaceView:  SurfaceView
-    private lateinit var tvLocation:   TextView
-    private lateinit var tvAddress:    TextView
-    private lateinit var tvSpeed:      TextView
-    private lateinit var tvDateTime:   TextView
     private lateinit var btnRecord:    ImageButton
     private lateinit var btnExit:      ImageButton
     private lateinit var btnSettings:  ImageButton
     private lateinit var tvRecording:  TextView
 
-    // ── Recorder ──────────────────────────────────────────────────────────
-    private var overlayRecorder: OverlayVideoRecorder? = null
+    // ── Recording service (hosts camera/GL/encoder pipeline) ────────────────
+    private var recordingService: RecordingService? = null
+    private var serviceBound = false
+    private var pendingDisplaySurface: Surface? = null
     private var isRecording = false
-    private val videoSize = Size(1920, 1080)
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            val svc = (binder as RecordingService.RecordingBinder).service
+            recordingService = svc
+            svc.setRecordingStateListener { recording ->
+                runOnUiThread {
+                    isRecording = recording
+                    updateRecordingUI()
+                }
+            }
+            isRecording = svc.isRecording
+            updateRecordingUI()
+            pendingDisplaySurface?.let { svc.attachDisplaySurface(it) }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            recordingService = null
+        }
+    }
 
     // ── Blink animator ─────────────────────────────────────────────────────
     private var blinkAnimator: ObjectAnimator? = null
 
-    // ── Overlay values (kept for recorder handoff on start) ────────────────
-    private var lastOverlayLocation = ""
-    private var lastOverlayAddress  = ""
-    private var lastOverlaySpeed    = "0 km/h"
-
-    // ── Location ───────────────────────────────────────────────────────────
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private var locationCallback: LocationCallback? = null
-    private var lastGeocodedLocation: Location? = null
-    private val geocoderExecutor = Executors.newSingleThreadExecutor()
-
-    // ── UI hide / time update ──────────────────────────────────────────────
+    // ── UI hide ──────────────────────────────────────────────────────────────
     private val uiHandler  = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { hideControls() }
-
-    private val timeRunnable = object : Runnable {
-        override fun run() {
-            tvDateTime.text = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-            uiHandler.postDelayed(this, 1000)
-        }
-    }
 
     // ══════════════════════════════════════════════════════════════════════
     // Lifecycle
@@ -108,35 +110,27 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         surfaceView  = findViewById(R.id.surfaceView)
-        tvLocation   = findViewById(R.id.tvLocation)
-        tvAddress    = findViewById(R.id.tvAddress)
-        tvSpeed      = findViewById(R.id.tvSpeed)
-        tvDateTime   = findViewById(R.id.tvDateTime)
         btnRecord    = findViewById(R.id.btnRecord)
         btnExit      = findViewById(R.id.btnExit)
         btnSettings  = findViewById(R.id.btnSettings)
         tvRecording  = findViewById(R.id.tvRecording)
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
-        btnRecord.setOnClickListener {
-            if (isRecording) stopRecording() else startRecording()
-        }
-        btnExit.setOnClickListener {
-            if (isRecording) stopRecording()
-            finishAndRemoveTask()
-        }
+        btnRecord.setOnClickListener { onRecordClicked() }
+        btnExit.setOnClickListener { onExitClicked() }
         btnSettings.setOnClickListener { showSegmentDurationDialog() }
         surfaceView.setOnClickListener { showControls() }
 
-        // SurfaceHolder callback — start/stop the recorder with the surface lifecycle
+        // SurfaceHolder callback — attach/detach the live-preview surface.
+        // Camera capture and recording live in RecordingService and are
+        // unaffected by the surface being destroyed (e.g. app backgrounded).
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-                if (checkPermissions()) initPreview(holder.surface)
+                pendingDisplaySurface = holder.surface
+                recordingService?.attachDisplaySurface(holder.surface)
             }
             override fun surfaceDestroyed(holder: SurfaceHolder) {
-                overlayRecorder?.release()
-                overlayRecorder = null
+                pendingDisplaySurface = null
+                recordingService?.detachDisplaySurface()
             }
             override fun surfaceChanged(holder: SurfaceHolder, fmt: Int, w: Int, h: Int) {}
         })
@@ -144,25 +138,29 @@ class MainActivity : AppCompatActivity() {
         if (!checkPermissions()) requestPermissions()
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (checkPermissions()) startAndBindService()
+    }
+
+    override fun onStop() {
+        if (serviceBound) {
+            recordingService?.setRecordingStateListener(null)
+            unbindService(serviceConnection)
+            serviceBound = false
+            recordingService = null
+        }
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
-        startLocationUpdates()
-        uiHandler.post(timeRunnable)
+        if (isRecording) scheduleHideControls()
     }
 
     override fun onPause() {
-        uiHandler.removeCallbacks(timeRunnable)
         uiHandler.removeCallbacks(hideRunnable)
-        stopLocationUpdates()
-        if (isRecording) stopRecording()
         super.onPause()
-    }
-
-    override fun onDestroy() {
-        overlayRecorder?.release()
-        overlayRecorder = null
-        geocoderExecutor.shutdown()
-        super.onDestroy()
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -174,7 +172,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermissions() {
-        ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS)
+        androidx.core.app.ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS)
     }
 
     override fun onRequestPermissionsResult(
@@ -182,56 +180,58 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_PERMISSIONS && checkPermissions()) {
-            surfaceView.holder.surface?.let { initPreview(it) }
-            startLocationUpdates()
+            startAndBindService()
         } else if (requestCode == REQUEST_PERMISSIONS) {
             Toast.makeText(this, "카메라, 오디오, 위치 권한이 필요합니다.", Toast.LENGTH_LONG).show()
         }
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Preview (GL pipeline always running while surface is alive)
+    // Recording service binding
     // ══════════════════════════════════════════════════════════════════════
 
-    private fun initPreview(surface: android.view.Surface) {
-        if (overlayRecorder != null) return   // already initialized
-        val recorder = OverlayVideoRecorder(this, videoSize).also {
-            it.overlayLocation = lastOverlayLocation
-            it.overlayAddress  = lastOverlayAddress
-            it.overlaySpeed    = lastOverlaySpeed
-            it.segmentDurationMinutes = loadSegmentMinutes()
-        }
-        overlayRecorder = recorder
-        // 'this' is a LifecycleOwner (AppCompatActivity implements it)
-        recorder.prepare(surface, this) {
-            // fired on main thread when CameraX is bound and first frame is flowing
-            Log.d(TAG, "GL preview ready")
-        }
+    /**
+     * Start [RecordingService] as a foreground service (so it outlives this
+     * Activity) and bind to it for UI control / live preview.
+     */
+    private fun startAndBindService() {
+        if (serviceBound) return
+        val intent = Intent(this, RecordingService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        serviceBound = true
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Recording
+    // Recording controls
     // ══════════════════════════════════════════════════════════════════════
 
-    private fun startRecording() {
-        val recorder = overlayRecorder ?: run {
+    private fun onRecordClicked() {
+        val svc = recordingService ?: run {
             Toast.makeText(this, "카메라 준비 중입니다.", Toast.LENGTH_SHORT).show()
             return
         }
-        recorder.startRecording()
-        isRecording = true
-        updateRecordingUI()
-        scheduleHideControls()
+        if (isRecording) {
+            svc.stopRecording {
+                showControls()
+                Toast.makeText(this, "영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            svc.startRecording()
+            scheduleHideControls()
+        }
     }
 
-    private fun stopRecording() {
-        isRecording = false
-        overlayRecorder?.stopRecording {
-            // main thread
-            stopBlinking()
-            updateRecordingUI()
-            showControls()
-            Toast.makeText(this, "영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+    private fun onExitClicked() {
+        val svc = recordingService
+        val finish = {
+            stopService(Intent(this, RecordingService::class.java))
+            finishAndRemoveTask()
+        }
+        if (svc != null && isRecording) {
+            svc.stopRecording { finish() }
+        } else {
+            finish()
         }
     }
 
@@ -247,6 +247,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             btnRecord.setImageResource(R.drawable.ic_record)
             tvRecording.visibility = View.GONE
+            stopBlinking()
         }
     }
 
@@ -272,6 +273,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startBlinking() {
+        if (blinkAnimator != null) return
         blinkAnimator = ObjectAnimator.ofFloat(tvRecording, "alpha", 1f, 0.1f).apply {
             duration    = 600
             repeatCount = ObjectAnimator.INFINITE
@@ -286,86 +288,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Location
-    // ══════════════════════════════════════════════════════════════════════
-
-    @SuppressLint("MissingPermission")
-    private fun startLocationUpdates() {
-        if (!checkPermissions()) return
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                result.lastLocation?.let { updateLocationUI(it) }
-            }
-        }
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-            .setMinUpdateIntervalMillis(500L)
-            .build()
-        fusedLocationClient.requestLocationUpdates(request, locationCallback!!, Looper.getMainLooper())
-    }
-
-    private fun stopLocationUpdates() {
-        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
-        locationCallback = null
-    }
-
-    private fun updateLocationUI(location: Location) {
-        val lat = String.format("%.5f°", location.latitude)
-        val lon = String.format("%.5f°", location.longitude)
-        tvLocation.text = "$lat\n$lon"
-
-        val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
-        tvSpeed.text = "$speedKmh\nkm/h"
-
-        lastOverlayLocation = "$lat\n$lon"
-        lastOverlaySpeed    = "$speedKmh km/h"
-        overlayRecorder?.overlayLocation = lastOverlayLocation
-        overlayRecorder?.overlaySpeed    = lastOverlaySpeed
-
-        fetchAddress(location)
-    }
-
-    private fun fetchAddress(location: Location) {
-        if (lastGeocodedLocation != null && location.distanceTo(lastGeocodedLocation!!) < 50f) return
-        lastGeocodedLocation = location
-        if (!Geocoder.isPresent()) return
-
-        val geocoder = Geocoder(this, Locale.getDefault())
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
-                val text = formatAddress(addresses.firstOrNull())
-                runOnUiThread {
-                    tvAddress.text = text
-                    lastOverlayAddress = text
-                    overlayRecorder?.overlayAddress = text
-                }
-            }
-        } else {
-            geocoderExecutor.execute {
-                try {
-                    @Suppress("DEPRECATION")
-                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                    val text = formatAddress(addresses?.firstOrNull())
-                    runOnUiThread {
-                        tvAddress.text = text
-                        lastOverlayAddress = text
-                        overlayRecorder?.overlayAddress = text
-                    }
-                } catch (e: Exception) { Log.e(TAG, "Geocoder error", e) }
-            }
-        }
-    }
-
-    private fun formatAddress(address: android.location.Address?): String {
-        if (address == null) return ""
-        val parts = mutableListOf<String>()
-        address.adminArea?.let { parts.add(it) }
-        address.subAdminArea?.takeIf { it != address.adminArea }?.let { parts.add(it) }
-        address.thoroughfare?.let { parts.add(it) }
-        if (parts.isNotEmpty()) return parts.joinToString(" ")
-        return address.getAddressLine(0)?.take(50) ?: ""
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
     // Settings — recording segment (loop) duration
     // ══════════════════════════════════════════════════════════════════════
 
@@ -374,11 +296,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSegmentMinutes(): Int =
         prefs().getInt(KEY_SEGMENT_MINUTES, DEFAULT_SEGMENT_MINUTES)
-
-    private fun saveSegmentMinutes(minutes: Int) {
-        prefs().edit().putInt(KEY_SEGMENT_MINUTES, minutes).apply()
-        overlayRecorder?.segmentDurationMinutes = minutes
-    }
 
     private fun showSegmentDurationDialog() {
         val input = EditText(this).apply {
@@ -401,7 +318,7 @@ class MainActivity : AppCompatActivity() {
                 if (minutes == null || minutes < MIN_SEGMENT_MINUTES || minutes > MAX_SEGMENT_MINUTES) {
                     Toast.makeText(this, R.string.segment_duration_invalid, Toast.LENGTH_SHORT).show()
                 } else {
-                    saveSegmentMinutes(minutes)
+                    recordingService?.setSegmentDurationMinutes(minutes)
                     Toast.makeText(this, getString(R.string.segment_duration_saved, minutes), Toast.LENGTH_SHORT).show()
                 }
             }

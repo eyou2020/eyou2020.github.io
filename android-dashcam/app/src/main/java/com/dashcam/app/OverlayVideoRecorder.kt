@@ -32,14 +32,20 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     ↓ renderFrame() on render thread
  *   Off-screen FBO: drawCameraTexture() + drawTexturedQuad(overlay) → compositeTexId
  *     ↓ blit (drawTexturedQuad) — same composite texture, twice
- *   displayEglSurface  → SurfaceView                    (always, for preview)
+ *   displayEglSurface  → SurfaceView                    (optional, for live preview)
  *   encoderEglSurface  → MediaCodec → MediaMuxer → MP4  (while recording)
  *
  * Lifecycle:
- *   prepare()        → start GL preview (no encoder)
- *   startRecording() → add encoder path
- *   stopRecording()  → finalize file, continue GL preview
- *   release()        → tear down everything
+ *   prepare()               → start camera + GL pipeline (no display, no encoder)
+ *   attachDisplaySurface()  → start blitting the composite to a SurfaceView
+ *   detachDisplaySurface()  → stop the preview blit; camera/recording continue
+ *   startRecording()        → add encoder path
+ *   stopRecording()         → finalize file, pipeline keeps running
+ *   release()               → tear down everything
+ *
+ * The display surface is fully decoupled from camera capture and encoding, so
+ * this class can run inside a foreground Service and keep recording after the
+ * hosting Activity's SurfaceView is destroyed (app backgrounded).
  */
 class OverlayVideoRecorder(
     private val context: Context,
@@ -101,6 +107,7 @@ class OverlayVideoRecorder(
     // ── State ──────────────────────────────────────────────────────────────
     private val isRunning  = AtomicBoolean(false)
     @Volatile private var recording = false
+    val isRecording: Boolean get() = recording
 
     // ── Render thread ──────────────────────────────────────────────────────
     private var renderThread:  HandlerThread? = null
@@ -110,7 +117,8 @@ class OverlayVideoRecorder(
     private var eglDisplay        = EGL14.EGL_NO_DISPLAY
     private var eglContext        = EGL14.EGL_NO_CONTEXT
     private var eglConfig: EGLConfig? = null
-    private var displayEglSurface = EGL14.EGL_NO_SURFACE   // → SurfaceView
+    private var displayEglSurface = EGL14.EGL_NO_SURFACE   // → SurfaceView (optional)
+    private var pbufferEglSurface = EGL14.EGL_NO_SURFACE   // 1x1 off-screen fallback surface
     private var encoderEglSurface = EGL14.EGL_NO_SURFACE   // → MediaCodec input
     private var displayWidth  = 0
     private var displayHeight = 0
@@ -185,11 +193,12 @@ class OverlayVideoRecorder(
     // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * Start GL preview (no encoder).  Call once when the SurfaceView's surface is ready.
+     * Start the GL/camera/encoder pipeline. No display surface is required —
+     * camera capture and recording run independently of any preview surface,
+     * so recording can continue while the app is backgrounded.
      * [onReady] fires on the main thread after CameraX is bound and frames are flowing.
      */
     fun prepare(
-        displaySurface: Surface,
         lifecycleOwner: LifecycleOwner,
         onReady: () -> Unit
     ) {
@@ -197,12 +206,51 @@ class OverlayVideoRecorder(
         renderThread  = HandlerThread("OVR-render").also { it.start() }
         renderHandler = Handler(renderThread!!.looper)
         renderHandler!!.post {
-            setupEGL(displaySurface)
+            setupEGL()
             setupGL()
             setupCameraSurface()
             Handler(Looper.getMainLooper()).post {
                 bindCamera(lifecycleOwner)
                 onReady()
+            }
+        }
+    }
+
+    /**
+     * Attach (or replace) the SurfaceView surface used for live preview.
+     * Safe to call repeatedly, e.g. each time the Activity's SurfaceView is recreated.
+     */
+    fun attachDisplaySurface(surface: Surface) {
+        renderHandler?.post {
+            if (displayEglSurface != EGL14.EGL_NO_SURFACE) {
+                EGL14.eglMakeCurrent(eglDisplay, pbufferEglSurface, pbufferEglSurface, eglContext)
+                EGL14.eglDestroySurface(eglDisplay, displayEglSurface)
+                displayEglSurface = EGL14.EGL_NO_SURFACE
+            }
+            displayEglSurface = EGL14.eglCreateWindowSurface(
+                eglDisplay, eglConfig!!, surface, intArrayOf(EGL14.EGL_NONE), 0
+            )
+            val w = IntArray(1); val h = IntArray(1)
+            EGL14.eglQuerySurface(eglDisplay, displayEglSurface, EGL14.EGL_WIDTH,  w, 0)
+            EGL14.eglQuerySurface(eglDisplay, displayEglSurface, EGL14.EGL_HEIGHT, h, 0)
+            displayWidth  = w[0].takeIf { it > 0 } ?: videoSize.width
+            displayHeight = h[0].takeIf { it > 0 } ?: videoSize.height
+            Log.d(TAG, "Display surface attached — ${displayWidth}x${displayHeight}")
+        }
+    }
+
+    /**
+     * Detach the live-preview surface (e.g. SurfaceView destroyed because the app
+     * was backgrounded). Camera capture, GL composite and recording all continue
+     * unaffected — only the on-screen preview blit (Pass 1) is skipped.
+     */
+    fun detachDisplaySurface() {
+        renderHandler?.post {
+            if (displayEglSurface != EGL14.EGL_NO_SURFACE) {
+                EGL14.eglMakeCurrent(eglDisplay, pbufferEglSurface, pbufferEglSurface, eglContext)
+                EGL14.eglDestroySurface(eglDisplay, displayEglSurface)
+                displayEglSurface = EGL14.EGL_NO_SURFACE
+                Log.d(TAG, "Display surface detached")
             }
         }
     }
@@ -274,7 +322,7 @@ class OverlayVideoRecorder(
     // EGL setup
     // ══════════════════════════════════════════════════════════════════════
 
-    private fun setupEGL(displaySurface: Surface) {
+    private fun setupEGL() {
         eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
         EGL14.eglInitialize(eglDisplay, null, 0, null, 0)
 
@@ -292,19 +340,17 @@ class OverlayVideoRecorder(
         val ctxAttrs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE)
         eglContext = EGL14.eglCreateContext(eglDisplay, eglConfig!!, EGL14.EGL_NO_CONTEXT, ctxAttrs, 0)
 
-        displayEglSurface = EGL14.eglCreateWindowSurface(
-            eglDisplay, eglConfig!!, displaySurface, intArrayOf(EGL14.EGL_NONE), 0
-        )
+        // 1x1 off-screen surface — lets the context stay current for FBO/texture work
+        // (camera capture, GL composite, encoding) even when no display Surface is
+        // attached, e.g. while recording with the app in the background.
+        val pbufferAttrs = intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE)
+        pbufferEglSurface = EGL14.eglCreatePbufferSurface(eglDisplay, eglConfig!!, pbufferAttrs, 0)
 
-        // Cache display dimensions for glViewport
-        val w = IntArray(1); val h = IntArray(1)
-        EGL14.eglQuerySurface(eglDisplay, displayEglSurface, EGL14.EGL_WIDTH,  w, 0)
-        EGL14.eglQuerySurface(eglDisplay, displayEglSurface, EGL14.EGL_HEIGHT, h, 0)
-        displayWidth  = w[0].takeIf { it > 0 } ?: videoSize.width
-        displayHeight = h[0].takeIf { it > 0 } ?: videoSize.height
+        displayWidth  = videoSize.width
+        displayHeight = videoSize.height
 
-        EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
-        Log.d(TAG, "EGL ready — display=${displayWidth}x${displayHeight}  context=$eglContext")
+        EGL14.eglMakeCurrent(eglDisplay, pbufferEglSurface, pbufferEglSurface, eglContext)
+        Log.d(TAG, "EGL ready — context=$eglContext")
     }
 
     private fun setupEncoderEGLSurface() {
@@ -427,12 +473,14 @@ class OverlayVideoRecorder(
         future.addListener({
             cameraProvider = future.get()
 
-            // Activity is locked to landscape (see AndroidManifest). Without an explicit
+            // The Activity is locked to landscape (see AndroidManifest). Without an explicit
             // targetRotation, CameraX assumes the default (portrait) display rotation and
             // the SurfaceTexture transform matrix ends up rotating frames 90° — producing
             // a stretched/rotated composite once blitted into our landscape-sized FBO.
-            val rotation = (context as? android.app.Activity)
-                ?.windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+            // windowManager.defaultDisplay works from a Service context too, so this keeps
+            // the correct rotation even when recording runs without an Activity in front.
+            val rotation = (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)
+                ?.defaultDisplay?.rotation ?: Surface.ROTATION_0
 
             val preview = Preview.Builder()
                 .setTargetResolution(videoSize)
@@ -496,14 +544,16 @@ class OverlayVideoRecorder(
         }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
-        // ── Pass 1: blit composite → display surface (always) ──────────────
-        val makeDisplayOk = EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
-        if (!makeDisplayOk) Log.e(TAG, "eglMakeCurrent(display) failed: 0x${EGL14.eglGetError().toString(16)}")
-        GLES20.glViewport(0, 0, displayWidth, displayHeight)
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
-        if (diag) logCenterPixel(displayWidth, displayHeight, "Display(frame=$frameCount)")
-        EGL14.eglSwapBuffers(eglDisplay, displayEglSurface)
+        // ── Pass 1: blit composite → display surface (only while attached) ─
+        if (displayEglSurface != EGL14.EGL_NO_SURFACE) {
+            val makeDisplayOk = EGL14.eglMakeCurrent(eglDisplay, displayEglSurface, displayEglSurface, eglContext)
+            if (!makeDisplayOk) Log.e(TAG, "eglMakeCurrent(display) failed: 0x${EGL14.eglGetError().toString(16)}")
+            GLES20.glViewport(0, 0, displayWidth, displayHeight)
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+            drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
+            if (diag) logCenterPixel(displayWidth, displayHeight, "Display(frame=$frameCount)")
+            EGL14.eglSwapBuffers(eglDisplay, displayEglSurface)
+        }
 
         // ── Pass 2: blit composite → encoder surface (only while recording) ─
         if (recording && encoderEglSurface != EGL14.EGL_NO_SURFACE) {
@@ -879,6 +929,10 @@ class OverlayVideoRecorder(
         if (displayEglSurface != EGL14.EGL_NO_SURFACE) {
             EGL14.eglDestroySurface(eglDisplay, displayEglSurface)
             displayEglSurface = EGL14.EGL_NO_SURFACE
+        }
+        if (pbufferEglSurface != EGL14.EGL_NO_SURFACE) {
+            EGL14.eglDestroySurface(eglDisplay, pbufferEglSurface)
+            pbufferEglSurface = EGL14.EGL_NO_SURFACE
         }
         if (eglContext != EGL14.EGL_NO_CONTEXT) {
             EGL14.eglDestroyContext(eglDisplay, eglContext)

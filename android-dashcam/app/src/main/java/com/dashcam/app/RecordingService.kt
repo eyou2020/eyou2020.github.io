@@ -1,0 +1,267 @@
+package com.dashcam.app
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
+import android.location.Geocoder
+import android.location.Location
+import android.os.Binder
+import android.os.Build
+import android.os.IBinder
+import android.os.Looper
+import android.util.Log
+import android.util.Size
+import android.view.Surface
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleService
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import java.util.Locale
+import java.util.concurrent.Executors
+
+/**
+ * Foreground service hosting the camera/GL/encoder pipeline ([OverlayVideoRecorder])
+ * and GPS overlay updates. Runs independently of MainActivity's lifecycle so that
+ * recording — and the live GPS/speed/address/datetime overlay baked into it —
+ * continues while the app is backgrounded.
+ *
+ * MainActivity binds to this service to attach/detach its SurfaceView for live
+ * preview and to control recording, but the service itself is started
+ * (startForegroundService) so it outlives the binding.
+ */
+class RecordingService : LifecycleService() {
+
+    companion object {
+        private const val TAG = "RecordingService"
+        private const val NOTIFICATION_CHANNEL_ID = "dashcam_recording"
+        private const val NOTIFICATION_ID = 1001
+
+        private const val PREFS_NAME = "dashcam_settings"
+        private const val KEY_SEGMENT_MINUTES = "segment_minutes"
+        private const val DEFAULT_SEGMENT_MINUTES = 15
+
+        private val VIDEO_SIZE = Size(1920, 1080)
+    }
+
+    inner class RecordingBinder : Binder() {
+        val service: RecordingService get() = this@RecordingService
+    }
+    private val binder = RecordingBinder()
+
+    private var overlayRecorder: OverlayVideoRecorder? = null
+    val isRecording: Boolean get() = overlayRecorder?.isRecording ?: false
+
+    private var recordingStateListener: ((Boolean) -> Unit)? = null
+    fun setRecordingStateListener(listener: ((Boolean) -> Unit)?) {
+        recordingStateListener = listener
+    }
+
+    // ── Location / overlay updates ───────────────────────────────────────
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var locationCallback: LocationCallback? = null
+    private var lastGeocodedLocation: Location? = null
+    private val geocoderExecutor = Executors.newSingleThreadExecutor()
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Lifecycle
+    // ══════════════════════════════════════════════════════════════════════
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        val notification = buildNotification(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        overlayRecorder = OverlayVideoRecorder(this, VIDEO_SIZE).also {
+            it.segmentDurationMinutes = loadSegmentMinutes()
+        }
+        overlayRecorder?.prepare(this) {
+            Log.d(TAG, "Camera/GL pipeline ready")
+        }
+
+        startLocationUpdates()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent): IBinder {
+        super.onBind(intent)
+        return binder
+    }
+
+    override fun onDestroy() {
+        stopLocationUpdates()
+        geocoderExecutor.shutdown()
+        overlayRecorder?.release()
+        overlayRecorder = null
+        super.onDestroy()
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Display surface (attached/detached by MainActivity's SurfaceView)
+    // ══════════════════════════════════════════════════════════════════════
+
+    fun attachDisplaySurface(surface: Surface) {
+        overlayRecorder?.attachDisplaySurface(surface)
+    }
+
+    fun detachDisplaySurface() {
+        overlayRecorder?.detachDisplaySurface()
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Recording control
+    // ══════════════════════════════════════════════════════════════════════
+
+    fun startRecording() {
+        overlayRecorder?.startRecording()
+        recordingStateListener?.invoke(true)
+        updateNotification(recording = true)
+    }
+
+    fun stopRecording(onDone: () -> Unit) {
+        overlayRecorder?.stopRecording {
+            recordingStateListener?.invoke(false)
+            updateNotification(recording = false)
+            onDone()
+        }
+    }
+
+    fun setSegmentDurationMinutes(minutes: Int) {
+        overlayRecorder?.segmentDurationMinutes = minutes
+        prefs().edit().putInt(KEY_SEGMENT_MINUTES, minutes).apply()
+    }
+
+    private fun prefs(): SharedPreferences =
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun loadSegmentMinutes(): Int =
+        prefs().getInt(KEY_SEGMENT_MINUTES, DEFAULT_SEGMENT_MINUTES)
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Location → overlay
+    // ══════════════════════════════════════════════════════════════════════
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.lastLocation?.let { updateOverlayLocation(it) }
+            }
+        }
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+            .setMinUpdateIntervalMillis(500L)
+            .build()
+        fusedLocationClient.requestLocationUpdates(request, locationCallback!!, Looper.getMainLooper())
+    }
+
+    private fun stopLocationUpdates() {
+        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
+        locationCallback = null
+    }
+
+    private fun updateOverlayLocation(location: Location) {
+        val lat = String.format("%.5f°", location.latitude)
+        val lon = String.format("%.5f°", location.longitude)
+        val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
+
+        overlayRecorder?.overlayLocation = "$lat\n$lon"
+        overlayRecorder?.overlaySpeed    = "$speedKmh km/h"
+
+        fetchAddress(location)
+    }
+
+    private fun fetchAddress(location: Location) {
+        if (lastGeocodedLocation != null && location.distanceTo(lastGeocodedLocation!!) < 50f) return
+        lastGeocodedLocation = location
+        if (!Geocoder.isPresent()) return
+
+        val geocoder = Geocoder(this, Locale.getDefault())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                overlayRecorder?.overlayAddress = formatAddress(addresses.firstOrNull())
+            }
+        } else {
+            geocoderExecutor.execute {
+                try {
+                    @Suppress("DEPRECATION")
+                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    overlayRecorder?.overlayAddress = formatAddress(addresses?.firstOrNull())
+                } catch (e: Exception) { Log.e(TAG, "Geocoder error", e) }
+            }
+        }
+    }
+
+    private fun formatAddress(address: android.location.Address?): String {
+        if (address == null) return ""
+        val parts = mutableListOf<String>()
+        address.adminArea?.let { parts.add(it) }
+        address.subAdminArea?.takeIf { it != address.adminArea }?.let { parts.add(it) }
+        address.thoroughfare?.let { parts.add(it) }
+        if (parts.isNotEmpty()) return parts.joinToString(" ")
+        return address.getAddressLine(0)?.take(50) ?: ""
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Notification
+    // ══════════════════════════════════════════════════════════════════════
+
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            getString(R.string.notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = getString(R.string.notification_channel_description)
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun buildNotification(recording: Boolean): Notification {
+        val text = getString(
+            if (recording) R.string.notification_recording else R.string.notification_standby
+        )
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    private fun updateNotification(recording: Boolean) {
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification(recording))
+    }
+}
