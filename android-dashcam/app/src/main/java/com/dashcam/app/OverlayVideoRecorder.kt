@@ -344,9 +344,13 @@ class OverlayVideoRecorder(
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
 
-        // Camera quad — separate position and UV buffers
+        // Camera quad — separate position and UV buffers.
+        // UV coords are rotated 90° relative to vertex positions: with
+        // Preview.targetRotation = display.rotation (ROTATION_90), the camera
+        // buffer (1920x1080, matches videoSize) arrives content-rotated 90° CW,
+        // so we counter-rotate the sampling by 90° CCW here.
         vertBuf = floatBuf(floatArrayOf(-1f,-1f,  1f,-1f,  -1f,1f,  1f,1f))
-        texBuf  = floatBuf(floatArrayOf( 0f, 0f,  1f, 0f,   0f,1f,  1f,1f))
+        texBuf  = floatBuf(floatArrayOf( 0f, 1f,  0f, 0f,   1f,1f,  1f,0f))
 
         // Overlay bitmap quad — interleaved (x, y, u, v). Canvas row 0 (top of bitmap) → V=1
         overlayCoordBuf = floatBuf(floatArrayOf(
