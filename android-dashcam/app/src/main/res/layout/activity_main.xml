@@ -14,13 +14,22 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!--
+        GPS/address/datetime/speed are burned directly into the GL composite
+        (see OverlayVideoRecorder.bakeOverlay) and rendered onto this SurfaceView
+        every frame, so the native views below stay hidden — otherwise the same
+        info would be shown twice (GL overlay + these views) on the live preview.
+        They are kept (not removed) so MainActivity's text-update calls keep working.
+    -->
+
     <!-- ── Top-left: GPS coordinates + address ── -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
         android:layout_margin="12dp"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/tvLocation"
@@ -71,7 +80,8 @@
         android:shadowColor="#CC000000"
         android:shadowDx="1"
         android:shadowDy="1"
-        android:shadowRadius="4" />
+        android:shadowRadius="4"
+        android:visibility="gone" />
 
     <!-- ── Bottom-left: Speed ── -->
     <TextView
@@ -91,7 +101,8 @@
         android:shadowColor="#CC000000"
         android:shadowDx="1"
         android:shadowDy="1"
-        android:shadowRadius="4" />
+        android:shadowRadius="4"
+        android:visibility="gone" />
 
     <!-- ── Bottom-right: REC indicator ── -->
     <TextView
