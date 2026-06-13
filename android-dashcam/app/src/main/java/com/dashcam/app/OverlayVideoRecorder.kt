@@ -389,16 +389,26 @@ class OverlayVideoRecorder(
     // CameraX binding
     // ══════════════════════════════════════════════════════════════════════
 
+    @Suppress("DEPRECATION")
     private fun bindCamera(lifecycleOwner: LifecycleOwner) {
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             cameraProvider = future.get()
 
+            // Activity is locked to landscape (see AndroidManifest). Without an explicit
+            // targetRotation, CameraX assumes the default (portrait) display rotation and
+            // the SurfaceTexture transform matrix ends up rotating frames 90° — producing
+            // a stretched/rotated composite once blitted into our landscape-sized FBO.
+            val rotation = (context as? android.app.Activity)
+                ?.windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+
             val preview = Preview.Builder()
                 .setTargetResolution(videoSize)
+                .setTargetRotation(rotation)
                 .build()
 
             preview.setSurfaceProvider { request ->
+                Log.d(TAG, "SurfaceRequest resolution=${request.resolution} rotation=$rotation")
                 // Update buffer size to match what CameraX actually resolved
                 camSt.setDefaultBufferSize(request.resolution.width, request.resolution.height)
                 request.provideSurface(
