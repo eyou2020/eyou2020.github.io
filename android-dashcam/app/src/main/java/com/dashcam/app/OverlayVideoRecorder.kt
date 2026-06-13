@@ -435,12 +435,23 @@ class OverlayVideoRecorder(
             bakeOverlay()
         }
 
+        val diag = frameCount <= 3 || frameCount % FRAME_RATE == 1
+
         // ── Compose once: camera + overlay → off-screen FBO (compositeTexId) ──
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
+        if (diag) {
+            val st = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+            Log.d(TAG, "frame=$frameCount FBO status=0x${st.toString(16)}")
+        }
         GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         drawCameraTexture()
+        if (diag) checkGlError("drawCameraTexture (frame=$frameCount)")
         drawTexturedQuad(overlayTexId, overlayCoordBuf, blend = true)
+        if (diag) {
+            checkGlError("drawOverlay (frame=$frameCount)")
+            logCenterPixel(videoSize.width, videoSize.height, "FBO(frame=$frameCount)")
+        }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
         // ── Pass 1: blit composite → display surface (always) ──────────────
@@ -449,6 +460,7 @@ class OverlayVideoRecorder(
         GLES20.glViewport(0, 0, displayWidth, displayHeight)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
+        if (diag) logCenterPixel(displayWidth, displayHeight, "Display(frame=$frameCount)")
         EGL14.eglSwapBuffers(eglDisplay, displayEglSurface)
 
         // ── Pass 2: blit composite → encoder surface (only while recording) ─
@@ -465,6 +477,7 @@ class OverlayVideoRecorder(
             GLES20.glViewport(0, 0, videoSize.width, videoSize.height)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             drawTexturedQuad(compositeTexId, blitCoordBuf, blend = false)
+            if (diag) logCenterPixel(videoSize.width, videoSize.height, "Encoder(frame=$frameCount)")
 
             EGL14.eglSwapBuffers(eglDisplay, encoderEglSurface)
             drainVideo(eos = false)
@@ -551,6 +564,8 @@ class OverlayVideoRecorder(
 
         if (DEBUG_RED_OVERLAY) {
             bmp.eraseColor(Color.RED)
+            val cx = bmp.getPixel(w / 2, h / 2)
+            Log.d(TAG, "bakeOverlay DEBUG_RED — bitmap ${bmp.width}x${bmp.height} centerPixel=0x${Integer.toHexString(cx)}")
             uploadOverlayBitmap(bmp)
             return
         }
@@ -859,6 +874,24 @@ class OverlayVideoRecorder(
     private fun checkGlError(op: String) {
         val err = GLES20.glGetError()
         if (err != GLES20.GL_NO_ERROR) Log.e(TAG, "GL error after $op: 0x${err.toString(16)}")
+    }
+
+    private val pixelBuf: ByteBuffer = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+
+    /** Diagnostic: read back the center pixel of the currently-bound framebuffer and log it. */
+    private fun logCenterPixel(width: Int, height: Int, label: String) {
+        pixelBuf.clear()
+        GLES20.glReadPixels(width / 2, height / 2, 1, 1, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixelBuf)
+        val err = GLES20.glGetError()
+        if (err != GLES20.GL_NO_ERROR) {
+            Log.e(TAG, "$label glReadPixels error: 0x${err.toString(16)}")
+            return
+        }
+        val r = pixelBuf.get(0).toInt() and 0xFF
+        val g = pixelBuf.get(1).toInt() and 0xFF
+        val b = pixelBuf.get(2).toInt() and 0xFF
+        val a = pixelBuf.get(3).toInt() and 0xFF
+        Log.d(TAG, "$label centerPixel RGBA=($r,$g,$b,$a)")
     }
 
     private fun floatBuf(arr: FloatArray): FloatBuffer =
