@@ -699,16 +699,16 @@ class OverlayVideoRecorder(
         // Baseline placement via fontMetrics — text never clips outside bitmap
         val fm = paint.fontMetrics
 
-        // Top-left: GPS coordinates + address (text top at `margin`)
+        // Top-left: address + GPS coordinates (text top at `margin`)
         var y = margin - fm.top
-        _overlayLocation.split("\n").forEach { line ->
-            if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
-        }
         if (_overlayAddress.isNotEmpty()) {
             wrapText(_overlayAddress, paint, w - margin - margin).forEach { line ->
                 drawLabeled(line, margin, y)
                 y += lineH
             }
+        }
+        _overlayLocation.split("\n").forEach { line ->
+            if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
         }
 
         // Top-right: date/time (text top at `margin`)
