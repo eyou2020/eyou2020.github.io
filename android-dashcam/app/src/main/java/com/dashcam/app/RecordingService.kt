@@ -225,11 +225,17 @@ class RecordingService : LifecycleService() {
     private fun formatAddress(address: android.location.Address?): String {
         if (address == null) return ""
         val parts = mutableListOf<String>()
-        address.adminArea?.let { parts.add(it) }
-        address.subAdminArea?.takeIf { it != address.adminArea }?.let { parts.add(it) }
-        address.thoroughfare?.let { parts.add(it) }
+        fun add(value: String?) {
+            if (!value.isNullOrBlank() && value !in parts) parts.add(value)
+        }
+        add(address.adminArea)
+        add(address.subAdminArea)
+        add(address.locality)
+        add(address.subLocality)
+        add(address.thoroughfare)
+        add(address.subThoroughfare)
         if (parts.isNotEmpty()) return parts.joinToString(" ")
-        return address.getAddressLine(0)?.take(50) ?: ""
+        return address.getAddressLine(0) ?: ""
     }
 
     // ══════════════════════════════════════════════════════════════════════

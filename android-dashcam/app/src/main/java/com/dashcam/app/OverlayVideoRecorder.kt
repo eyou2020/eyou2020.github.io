@@ -704,7 +704,12 @@ class OverlayVideoRecorder(
         _overlayLocation.split("\n").forEach { line ->
             if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
         }
-        if (_overlayAddress.isNotEmpty()) drawLabeled(_overlayAddress, margin, y)
+        if (_overlayAddress.isNotEmpty()) {
+            wrapText(_overlayAddress, paint, w - margin - margin).forEach { line ->
+                drawLabeled(line, margin, y)
+                y += lineH
+            }
+        }
 
         // Top-right: date/time (text top at `margin`)
         val now = SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(Date())
@@ -714,6 +719,26 @@ class OverlayVideoRecorder(
         drawLabeled(_overlaySpeed, margin, h - margin - fm.bottom)
 
         uploadOverlayBitmap(bmp)
+    }
+
+    /** Greedy word-wrap of [text] into lines no wider than [maxWidth] under [paint]. */
+    private fun wrapText(text: String, paint: Paint, maxWidth: Float): List<String> {
+        val words = text.split(" ").filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+
+        val lines = mutableListOf<String>()
+        var current = words[0]
+        for (word in words.drop(1)) {
+            val candidate = "$current $word"
+            if (paint.measureText(candidate) <= maxWidth) {
+                current = candidate
+            } else {
+                lines.add(current)
+                current = word
+            }
+        }
+        lines.add(current)
+        return lines
     }
 
     private fun uploadOverlayBitmap(bmp: Bitmap) {
