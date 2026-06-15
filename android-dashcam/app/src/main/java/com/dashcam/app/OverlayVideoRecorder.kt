@@ -673,7 +673,7 @@ class OverlayVideoRecorder(
         bmp.eraseColor(Color.TRANSPARENT)
         val canvas = Canvas(bmp)
 
-        val textSz = h * 0.065f
+        val textSz = h * 0.0325f
         val margin = w * 0.015f
         val lineH  = textSz * 1.35f
 
