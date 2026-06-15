@@ -711,9 +711,14 @@ class OverlayVideoRecorder(
             if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
         }
 
-        // Top-right: date/time (text top at `margin`)
-        val now = SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(Date())
-        drawLabeled(now, w - paint.measureText(now) - margin, margin - fm.top)
+        // Top-right: date / time, 2 lines (text top at `margin`)
+        val now = Date()
+        val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now)
+        val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(now)
+        var yRight = margin - fm.top
+        drawLabeled(dateStr, w - paint.measureText(dateStr) - margin, yRight)
+        yRight += lineH
+        drawLabeled(timeStr, w - paint.measureText(timeStr) - margin, yRight)
 
         // Bottom-left: speed (text bottom at `h - margin`)
         drawLabeled(_overlaySpeed, margin, h - margin - fm.bottom)
