@@ -153,6 +153,10 @@ class RecordingService : LifecycleService() {
         }
     }
 
+    fun saveEventSegment(onDone: () -> Unit) {
+        overlayRecorder?.saveEventSegment(onDone)
+    }
+
     fun setSegmentDurationMinutes(minutes: Int) {
         overlayRecorder?.segmentDurationMinutes = minutes
         prefs().edit().putInt(KEY_SEGMENT_MINUTES, minutes).apply()

@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.*
 import android.media.*
+import android.net.Uri
 import android.opengl.*
 import android.os.*
 import android.provider.MediaStore
@@ -172,6 +173,8 @@ class OverlayVideoRecorder(
     @Volatile private var muxerStarted = false
     private var startCamNs  = 0L
     private var outputPfd:  ParcelFileDescriptor? = null
+    private var currentOutputUri:  Uri?  = null   // API 29+ — used to move to Events folder
+    private var currentOutputFile: File? = null   // pre-API 29
     private var audioThread: Thread? = null
     private val muxerLock = Any()
     private val vInfo = MediaCodec.BufferInfo()
@@ -298,6 +301,60 @@ class OverlayVideoRecorder(
         setupEncoders()
         setupEncoderEGLSurface()
         startAudio()
+    }
+
+    /**
+     * Triggered by the event button while recording.
+     * Finalizes the current segment and moves it to the "Events" sub-folder,
+     * then seamlessly starts a new normal segment so recording continues.
+     * [onDone] fires on the main thread when the move is complete.
+     */
+    fun saveEventSegment(onDone: () -> Unit) {
+        renderHandler?.post {
+            if (!recording) return@post
+            Log.d(TAG, "Event triggered — saving current segment to Events folder")
+            drainVideo(eos = true)
+            audioThread?.interrupt()
+            audioThread?.join(2000)
+            drainAudioFinal()
+            finalizeEncoding()
+            moveCurrentOutputToEvents()
+
+            muxerStarted = false
+            videoTrack = -1; audioTrack = -1
+            setupEncoders()
+            setupEncoderEGLSurface()
+            startAudio()
+            startCamNs = camSt.timestamp
+
+            Handler(Looper.getMainLooper()).post(onDone)
+        }
+    }
+
+    /** Move the just-finalized segment file into the Events sub-folder. */
+    private fun moveCurrentOutputToEvents() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val uri = currentOutputUri ?: return
+            try {
+                context.contentResolver.update(
+                    uri,
+                    ContentValues().apply {
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam/Events")
+                    },
+                    null, null
+                )
+                Log.d(TAG, "Event segment moved to Movies/DashCam/Events")
+            } catch (e: Exception) { Log.e(TAG, "Failed to move event segment", e) }
+            currentOutputUri = null
+        } else {
+            val src = currentOutputFile ?: return
+            val eventDir = File(context.getExternalFilesDir(null), "DashCam/Events").also { it.mkdirs() }
+            try {
+                src.renameTo(File(eventDir, src.name))
+                Log.d(TAG, "Event segment moved to ${eventDir.absolutePath}")
+            } catch (e: Exception) { Log.e(TAG, "Failed to move event segment", e) }
+            currentOutputFile = null
+        }
     }
 
     /** Tear down the entire pipeline (call from onDestroy / surfaceDestroyed). */
@@ -772,14 +829,16 @@ class OverlayVideoRecorder(
                 put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam")
             }
             val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv)!!
+            currentOutputUri  = uri
+            currentOutputFile = null
             outputPfd = context.contentResolver.openFileDescriptor(uri, "w")
             muxer = MediaMuxer(outputPfd!!.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         } else {
-            val dir = File(context.getExternalFilesDir(null), "DashCam").also { it.mkdirs() }
-            muxer = MediaMuxer(
-                "${dir.absolutePath}/DashCam_$ts.mp4",
-                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
-            )
+            val dir  = File(context.getExternalFilesDir(null), "DashCam").also { it.mkdirs() }
+            val file = File(dir, "DashCam_$ts.mp4")
+            currentOutputUri  = null
+            currentOutputFile = file
+            muxer = MediaMuxer(file.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         }
 
         val vf = MediaFormat.createVideoFormat(MIME_VIDEO, videoSize.width, videoSize.height).apply {

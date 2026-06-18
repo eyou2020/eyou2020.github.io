@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <!-- Warning triangle outline -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M18,4 L33,31 L3,31 Z" />
+    <!-- Exclamation bar -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M18,13 L18,22" />
+    <!-- Exclamation dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18,26.5 m-1.5,0 a1.5,1.5 0,1,0 3,0 a1.5,1.5 0,1,0 -3,0" />
+</vector>

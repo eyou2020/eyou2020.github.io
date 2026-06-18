@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">블랙박스</string>
+    <string name="event_button_desc">이벤트 녹화 버튼</string>
     <string name="record_button_desc">녹화 버튼</string>
     <string name="exit_button_desc">종료 버튼</string>
     <string name="settings_button_desc">설정 버튼</string>

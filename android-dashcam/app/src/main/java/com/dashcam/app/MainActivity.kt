@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
 
     // ── UI ─────────────────────────────────────────────────────────────────
     private lateinit var surfaceView:  SurfaceView
+    private lateinit var btnEvent:     ImageButton
     private lateinit var btnRecord:    ImageButton
     private lateinit var btnExit:      ImageButton
     private lateinit var btnSettings:  ImageButton
@@ -110,11 +111,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         surfaceView  = findViewById(R.id.surfaceView)
+        btnEvent     = findViewById(R.id.btnEvent)
         btnRecord    = findViewById(R.id.btnRecord)
         btnExit      = findViewById(R.id.btnExit)
         btnSettings  = findViewById(R.id.btnSettings)
         tvRecording  = findViewById(R.id.tvRecording)
 
+        btnEvent.setOnClickListener { onEventClicked() }
         btnRecord.setOnClickListener { onRecordClicked() }
         btnExit.setOnClickListener { onExitClicked() }
         btnSettings.setOnClickListener { showSegmentDurationDialog() }
@@ -206,6 +209,15 @@ class MainActivity : AppCompatActivity() {
     // Recording controls
     // ══════════════════════════════════════════════════════════════════════
 
+    private fun onEventClicked() {
+        val svc = recordingService ?: return
+        btnEvent.isEnabled = false
+        svc.saveEventSegment {
+            btnEvent.isEnabled = true
+            Toast.makeText(this, "이벤트 영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun onRecordClicked() {
         val svc = recordingService ?: run {
             Toast.makeText(this, "카메라 준비 중입니다.", Toast.LENGTH_SHORT).show()
@@ -243,15 +255,18 @@ class MainActivity : AppCompatActivity() {
         if (isRecording) {
             btnRecord.setImageResource(R.drawable.ic_stop)
             tvRecording.visibility = View.VISIBLE
+            btnEvent.visibility    = View.VISIBLE
             startBlinking()
         } else {
             btnRecord.setImageResource(R.drawable.ic_record)
             tvRecording.visibility = View.GONE
+            btnEvent.visibility    = View.GONE
             stopBlinking()
         }
     }
 
     private fun showControls() {
+        if (isRecording) btnEvent.visibility = View.VISIBLE
         btnRecord.visibility   = View.VISIBLE
         btnExit.visibility     = View.VISIBLE
         btnSettings.visibility = View.VISIBLE
@@ -261,6 +276,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideControls() {
         if (isRecording) {
+            btnEvent.visibility    = View.GONE
             btnRecord.visibility   = View.GONE
             btnExit.visibility     = View.GONE
             btnSettings.visibility = View.GONE
