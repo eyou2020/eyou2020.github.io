@@ -13,4 +13,8 @@
     <string name="notification_channel_description">앱이 백그라운드에 있어도 녹화를 계속합니다.</string>
     <string name="notification_recording">녹화 중입니다.</string>
     <string name="notification_standby">블랙박스가 실행 중입니다.</string>
+    <string name="daytime_button_desc">주간 시간 설정 버튼</string>
+    <string name="daytime_from_title">주간 시작 시간 선택</string>
+    <string name="daytime_to_title">주간 종료 시간 선택</string>
+    <string name="daytime_saved">주간 시간이 %1$s ~ %2$s 로 설정되었습니다.</string>
 </resources>

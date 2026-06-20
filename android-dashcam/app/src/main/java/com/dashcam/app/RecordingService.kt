@@ -3,6 +3,7 @@ package com.dashcam.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
+import android.graphics.Color
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -28,6 +29,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.Executors
 
@@ -49,8 +51,14 @@ class RecordingService : LifecycleService() {
         private const val NOTIFICATION_ID = 1001
 
         private const val PREFS_NAME = "dashcam_settings"
-        private const val KEY_SEGMENT_MINUTES = "segment_minutes"
+        private const val KEY_SEGMENT_MINUTES   = "segment_minutes"
         private const val DEFAULT_SEGMENT_MINUTES = 15
+
+        private const val KEY_DAYTIME_ENABLED   = "daytime_enabled"
+        private const val KEY_DAYTIME_FROM_HOUR = "daytime_from_hour"
+        private const val KEY_DAYTIME_FROM_MIN  = "daytime_from_min"
+        private const val KEY_DAYTIME_TO_HOUR   = "daytime_to_hour"
+        private const val KEY_DAYTIME_TO_MIN    = "daytime_to_min"
 
         private val VIDEO_SIZE = Size(1920, 1080)
     }
@@ -67,6 +75,14 @@ class RecordingService : LifecycleService() {
     fun setRecordingStateListener(listener: ((Boolean) -> Unit)?) {
         recordingStateListener = listener
     }
+
+    // ── Daytime text-color settings ──────────────────────────────────────
+    private var daytimeEnabled  = false
+    private var daytimeFromHour = 6
+    private var daytimeFromMin  = 0
+    private var daytimeToHour   = 20
+    private var daytimeToMin    = 0
+    @Volatile private var manualColorOverride = false
 
     // ── Location / overlay updates ───────────────────────────────────────
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -101,6 +117,9 @@ class RecordingService : LifecycleService() {
         overlayRecorder?.prepare(this) {
             Log.d(TAG, "Camera/GL pipeline ready")
         }
+
+        loadDaytimeSettings()
+        applyDaytimeColor()
 
         startLocationUpdates()
     }
@@ -157,6 +176,34 @@ class RecordingService : LifecycleService() {
         overlayRecorder?.saveEventSegment(onDone)
     }
 
+    fun toggleTextColor() {
+        manualColorOverride = true
+        overlayRecorder?.toggleTextColor()
+    }
+
+    fun setDaytimeSettings(enabled: Boolean, fromHour: Int, fromMin: Int, toHour: Int, toMin: Int) {
+        daytimeEnabled  = enabled
+        daytimeFromHour = fromHour
+        daytimeFromMin  = fromMin
+        daytimeToHour   = toHour
+        daytimeToMin    = toMin
+        manualColorOverride = false
+        prefs().edit()
+            .putBoolean(KEY_DAYTIME_ENABLED,   enabled)
+            .putInt(KEY_DAYTIME_FROM_HOUR, fromHour)
+            .putInt(KEY_DAYTIME_FROM_MIN,  fromMin)
+            .putInt(KEY_DAYTIME_TO_HOUR,   toHour)
+            .putInt(KEY_DAYTIME_TO_MIN,    toMin)
+            .apply()
+        applyDaytimeColor()
+    }
+
+    fun getDaytimeSettings(): IntArray = intArrayOf(
+        if (daytimeEnabled) 1 else 0,
+        daytimeFromHour, daytimeFromMin,
+        daytimeToHour,   daytimeToMin
+    )
+
     fun setSegmentDurationMinutes(minutes: Int) {
         overlayRecorder?.segmentDurationMinutes = minutes
         prefs().edit().putInt(KEY_SEGMENT_MINUTES, minutes).apply()
@@ -167,6 +214,25 @@ class RecordingService : LifecycleService() {
 
     private fun loadSegmentMinutes(): Int =
         prefs().getInt(KEY_SEGMENT_MINUTES, DEFAULT_SEGMENT_MINUTES)
+
+    private fun loadDaytimeSettings() {
+        val p = prefs()
+        daytimeEnabled  = p.getBoolean(KEY_DAYTIME_ENABLED,   false)
+        daytimeFromHour = p.getInt(KEY_DAYTIME_FROM_HOUR, 6)
+        daytimeFromMin  = p.getInt(KEY_DAYTIME_FROM_MIN,  0)
+        daytimeToHour   = p.getInt(KEY_DAYTIME_TO_HOUR,  20)
+        daytimeToMin    = p.getInt(KEY_DAYTIME_TO_MIN,    0)
+    }
+
+    private fun applyDaytimeColor() {
+        if (!daytimeEnabled || manualColorOverride) return
+        val cal  = Calendar.getInstance()
+        val now  = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        val from = daytimeFromHour * 60 + daytimeFromMin
+        val to   = daytimeToHour   * 60 + daytimeToMin
+        val inDaytime = if (from <= to) now in from..to else now >= from || now <= to
+        overlayRecorder?.overlayTextColor = if (inDaytime) Color.WHITE else Color.BLACK
+    }
 
     // ══════════════════════════════════════════════════════════════════════
     // Location → overlay
@@ -203,6 +269,7 @@ class RecordingService : LifecycleService() {
         overlayRecorder?.overlaySpeed    = "$speedKmh km/h"
 
         fetchAddress(location)
+        applyDaytimeColor()
     }
 
     private fun fetchAddress(location: Location) {
