@@ -286,6 +286,7 @@ class OverlayVideoRecorder(
             audioThread?.join(3000)
             drainAudioFinal()
             finalizeEncoding()
+            finalizeNormalSegment()   // IS_PENDING → 0, makes file visible in gallery
             Handler(Looper.getMainLooper()).post(onDone)
         }
     }
@@ -301,6 +302,7 @@ class OverlayVideoRecorder(
         audioThread?.join(2000)
         drainAudioFinal()
         finalizeEncoding()
+        finalizeNormalSegment()   // IS_PENDING → 0 before starting next segment
 
         muxerStarted = false
         videoTrack = -1; audioTrack = -1
@@ -324,10 +326,9 @@ class OverlayVideoRecorder(
             audioThread?.join(2000)
             drainAudioFinal()
             finalizeEncoding()
+            // moveCurrentOutputToEvents sets RELATIVE_PATH=Events + IS_PENDING=0
             moveCurrentOutputToEvents()
 
-            muxerStarted = false
-            videoTrack = -1; audioTrack = -1
             setupEncoders()
             setupEncoderEGLSurface()
             startAudio()
@@ -337,7 +338,11 @@ class OverlayVideoRecorder(
         }
     }
 
-    /** Move the just-finalized segment file into the Events sub-folder. */
+    /**
+     * Move the just-finalized segment into the Events sub-folder and make it
+     * visible by clearing IS_PENDING.  If the move fails, the file is kept in
+     * the Normal folder (IS_PENDING cleared so it remains accessible).
+     */
     private fun moveCurrentOutputToEvents() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val uri = currentOutputUri ?: return
@@ -346,11 +351,22 @@ class OverlayVideoRecorder(
                     uri,
                     ContentValues().apply {
                         put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam/Events")
+                        put(MediaStore.Video.Media.IS_PENDING, 0)   // make file visible
                     },
                     null, null
                 )
                 Log.d(TAG, "Event segment moved to Movies/DashCam/Events")
-            } catch (e: Exception) { Log.e(TAG, "Failed to move event segment", e) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to move event segment; keeping in Normal", e)
+                // Fallback: at minimum clear IS_PENDING so the file shows up in Normal
+                try {
+                    context.contentResolver.update(
+                        uri,
+                        ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
+                        null, null
+                    )
+                } catch (_: Exception) {}
+            }
             currentOutputUri = null
         } else {
             val src = currentOutputFile ?: return
@@ -361,6 +377,23 @@ class OverlayVideoRecorder(
             } catch (e: Exception) { Log.e(TAG, "Failed to move event segment", e) }
             currentOutputFile = null
         }
+    }
+
+    /** Publish the finalized normal segment by clearing IS_PENDING (API 29+). */
+    private fun finalizeNormalSegment() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val uri = currentOutputUri ?: return
+            try {
+                context.contentResolver.update(
+                    uri,
+                    ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
+                    null, null
+                )
+                Log.d(TAG, "Normal segment published (IS_PENDING cleared)")
+            } catch (e: Exception) { Log.e(TAG, "Failed to publish normal segment", e) }
+            currentOutputUri = null
+        }
+        // pre-API 29: file was written directly, no pending flag needed
     }
 
     /** Tear down the entire pipeline (call from onDestroy / surfaceDestroyed). */
@@ -376,6 +409,7 @@ class OverlayVideoRecorder(
                 try { audioThread?.join(2000) }    catch (_: Exception) {}
                 try { drainAudioFinal() }          catch (_: Exception) {}
                 try { finalizeEncoding() }         catch (_: Exception) {}
+                try { finalizeNormalSegment() }    catch (_: Exception) {}
             }
             releaseAll()
         }
@@ -839,6 +873,7 @@ class OverlayVideoRecorder(
                 put(MediaStore.Video.Media.DISPLAY_NAME, "DashCam_$ts.mp4")
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                 put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/DashCam/Normal")
+                put(MediaStore.Video.Media.IS_PENDING, 1)   // hidden while writing
             }
             val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cv)!!
             currentOutputUri  = uri
