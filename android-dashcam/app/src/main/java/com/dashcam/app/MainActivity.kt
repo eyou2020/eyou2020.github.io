@@ -254,6 +254,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             svc.startRecording()
+            Toast.makeText(this, "녹화를 시작합니다.", Toast.LENGTH_SHORT).show()
             scheduleHideControls()
         }
     }
