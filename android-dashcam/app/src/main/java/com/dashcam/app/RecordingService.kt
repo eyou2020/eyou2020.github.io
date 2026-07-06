@@ -76,6 +76,10 @@ class RecordingService : LifecycleService() {
         recordingStateListener = listener
     }
 
+    // ── Segment-rotated callback (for timer reset in MainActivity) ───────
+    private var segmentRotatedListener: (() -> Unit)? = null
+    fun setSegmentRotatedListener(l: (() -> Unit)?) { segmentRotatedListener = l }
+
     // ── Daytime text-color settings ──────────────────────────────────────
     private var daytimeEnabled  = false
     private var daytimeFromHour = 6
@@ -113,6 +117,7 @@ class RecordingService : LifecycleService() {
 
         overlayRecorder = OverlayVideoRecorder(this, VIDEO_SIZE).also {
             it.segmentDurationMinutes = loadSegmentMinutes()
+            it.onSegmentRotated = { segmentRotatedListener?.invoke() }
         }
         overlayRecorder?.prepare(this) {
             Log.d(TAG, "Camera/GL pipeline ready")

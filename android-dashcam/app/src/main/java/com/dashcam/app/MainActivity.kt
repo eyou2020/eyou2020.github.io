@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.text.InputType
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -59,13 +60,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ── UI ─────────────────────────────────────────────────────────────────
-    private lateinit var surfaceView:  SurfaceView
-    private lateinit var btnEvent:     ImageButton
-    private lateinit var btnRecord:    ImageButton
-    private lateinit var btnExit:      ImageButton
-    private lateinit var btnSettings:  ImageButton
-    private lateinit var btnDaytime:   ImageButton
-    private lateinit var tvRecording:  TextView
+    private lateinit var surfaceView:       SurfaceView
+    private lateinit var btnEvent:          ImageButton
+    private lateinit var btnRecord:         ImageButton
+    private lateinit var btnExit:           ImageButton
+    private lateinit var btnSettings:       ImageButton
+    private lateinit var btnDaytime:        ImageButton
+    private lateinit var tvRecording:       TextView
+    private lateinit var tvRecordingTimer:  TextView
+
+    // ── Segment elapsed timer ───────────────────────────────────────────────
+    private var segmentStartMs = 0L
+    private val timerHandler = Handler(Looper.getMainLooper())
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            val elapsed = SystemClock.elapsedRealtime() - segmentStartMs
+            val minutes = (elapsed / 60000).toInt()
+            val seconds = ((elapsed % 60000) / 1000).toInt()
+            tvRecordingTimer.text = String.format("%02d:%02d", minutes, seconds)
+            timerHandler.postDelayed(this, 500)
+        }
+    }
 
     // ── Recording service (hosts camera/GL/encoder pipeline) ────────────────
     private var recordingService: RecordingService? = null
@@ -83,12 +98,16 @@ class MainActivity : AppCompatActivity() {
                     updateRecordingUI()
                 }
             }
+            svc.setSegmentRotatedListener {
+                runOnUiThread { resetSegmentTimer() }
+            }
             isRecording = svc.isRecording
             updateRecordingUI()
             pendingDisplaySurface?.let { svc.attachDisplaySurface(it) }
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
+            recordingService?.setSegmentRotatedListener(null)
             recordingService = null
         }
     }
@@ -125,8 +144,9 @@ class MainActivity : AppCompatActivity() {
         btnRecord    = findViewById(R.id.btnRecord)
         btnExit      = findViewById(R.id.btnExit)
         btnSettings  = findViewById(R.id.btnSettings)
-        btnDaytime   = findViewById(R.id.btnDaytime)
-        tvRecording  = findViewById(R.id.tvRecording)
+        btnDaytime         = findViewById(R.id.btnDaytime)
+        tvRecording        = findViewById(R.id.tvRecording)
+        tvRecordingTimer   = findViewById(R.id.tvRecordingTimer)
 
         btnEvent.setOnClickListener { onEventClicked() }
         btnRecord.setOnClickListener { onRecordClicked() }
@@ -171,8 +191,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        stopSegmentTimer()
         if (serviceBound) {
             recordingService?.setRecordingStateListener(null)
+            recordingService?.setSegmentRotatedListener(null)
             unbindService(serviceConnection)
             serviceBound = false
             recordingService = null
@@ -238,6 +260,7 @@ class MainActivity : AppCompatActivity() {
         btnEvent.isEnabled = false
         svc.saveEventSegment {
             btnEvent.isEnabled = true
+            resetSegmentTimer()
             Toast.makeText(this, "이벤트 영상이 저장되었습니다.", Toast.LENGTH_SHORT).show()
         }
     }
@@ -279,14 +302,18 @@ class MainActivity : AppCompatActivity() {
     private fun updateRecordingUI() {
         if (isRecording) {
             btnRecord.setImageResource(R.drawable.ic_stop)
-            tvRecording.visibility = View.VISIBLE
-            btnEvent.visibility    = View.VISIBLE
+            tvRecording.visibility      = View.VISIBLE
+            tvRecordingTimer.visibility = View.VISIBLE
+            btnEvent.visibility         = View.VISIBLE
             startBlinking()
+            startSegmentTimer()
         } else {
             btnRecord.setImageResource(R.drawable.ic_record)
-            tvRecording.visibility = View.GONE
-            btnEvent.visibility    = View.GONE
+            tvRecording.visibility      = View.GONE
+            tvRecordingTimer.visibility = View.GONE
+            btnEvent.visibility         = View.GONE
             stopBlinking()
+            stopSegmentTimer()
         }
     }
 
@@ -313,6 +340,22 @@ class MainActivity : AppCompatActivity() {
     private fun scheduleHideControls() {
         uiHandler.removeCallbacks(hideRunnable)
         uiHandler.postDelayed(hideRunnable, HIDE_DELAY_MS)
+    }
+
+    private fun startSegmentTimer() {
+        timerHandler.removeCallbacks(timerRunnable)
+        segmentStartMs = SystemClock.elapsedRealtime()
+        tvRecordingTimer.text = "00:00"
+        timerHandler.post(timerRunnable)
+    }
+
+    private fun resetSegmentTimer() {
+        segmentStartMs = SystemClock.elapsedRealtime()
+        tvRecordingTimer.text = "00:00"
+    }
+
+    private fun stopSegmentTimer() {
+        timerHandler.removeCallbacks(timerRunnable)
     }
 
     private fun startBlinking() {

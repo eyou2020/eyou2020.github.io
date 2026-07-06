@@ -194,6 +194,9 @@ class OverlayVideoRecorder(
         get() = (segmentDurationNs / 60_000_000_000L).toInt()
         set(minutes) { segmentDurationNs = minutes.toLong() * 60_000_000_000L }
 
+    /** Called on the main thread whenever a new segment starts (auto-rotate or event save). */
+    var onSegmentRotated: (() -> Unit)? = null
+
     // ── CameraX ────────────────────────────────────────────────────────────
     private var cameraProvider: ProcessCameraProvider? = null
 
@@ -309,6 +312,7 @@ class OverlayVideoRecorder(
         setupEncoders()
         setupEncoderEGLSurface()
         startAudio()
+        Handler(Looper.getMainLooper()).post { onSegmentRotated?.invoke() }
     }
 
     /**
