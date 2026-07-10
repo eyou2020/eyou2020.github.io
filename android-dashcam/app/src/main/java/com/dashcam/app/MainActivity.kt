@@ -24,8 +24,10 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -43,6 +45,8 @@ class MainActivity : AppCompatActivity() {
         private const val MIN_SEGMENT_MINUTES = 1
         private const val MAX_SEGMENT_MINUTES = 60
 
+        private const val KEY_AUTO_START        = "auto_start_recording"
+
         private const val KEY_DAYTIME_ENABLED   = "daytime_enabled"
         private const val KEY_DAYTIME_FROM_HOUR = "daytime_from_hour"
         private const val KEY_DAYTIME_FROM_MIN  = "daytime_from_min"
@@ -59,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         }.toTypedArray()
     }
 
-    // ── UI ─────────────────────────────────────────────────────────────────
+    // ── UI ─────────────────────────────────────────────────────────────────────
     private lateinit var surfaceView:       SurfaceView
     private lateinit var btnEvent:          ImageButton
     private lateinit var btnRecord:         ImageButton
@@ -69,7 +73,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvRecording:       TextView
     private lateinit var tvRecordingTimer:  TextView
 
-    // ── Segment elapsed timer ───────────────────────────────────────────────
+    // ── Segment elapsed timer ──────────────────────────────────────────────────────
     private var segmentStartMs = 0L
     private val timerHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
@@ -82,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Recording service (hosts camera/GL/encoder pipeline) ────────────────
+    // ── Recording service (hosts camera/GL/encoder pipeline) ────────────────────
     private var recordingService: RecordingService? = null
     private var serviceBound = false
     private var pendingDisplaySurface: Surface? = null
@@ -102,6 +106,11 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { resetSegmentTimer() }
             }
             isRecording = svc.isRecording
+            if (!isRecording && loadAutoStart()) {
+                svc.startRecording()
+                Toast.makeText(this@MainActivity, "녹화를 시작합니다.", Toast.LENGTH_SHORT).show()
+                scheduleHideControls()
+            }
             updateRecordingUI()
             pendingDisplaySurface?.let { svc.attachDisplaySurface(it) }
         }
@@ -112,16 +121,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Blink animator ─────────────────────────────────────────────────────
+    // ── Blink animator ─────────────────────────────────────────────────────────────
     private var blinkAnimator: ObjectAnimator? = null
 
-    // ── UI hide ──────────────────────────────────────────────────────────────
+    // ── UI hide ──────────────────────────────────────────────────────────────────
     private val uiHandler  = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { hideControls() }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Lifecycle
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -212,9 +221,9 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Permissions
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     private fun checkPermissions() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
@@ -235,9 +244,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Recording service binding
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     /**
      * Start [RecordingService] as a foreground service (so it outlives this
@@ -251,9 +260,9 @@ class MainActivity : AppCompatActivity() {
         serviceBound = true
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Recording controls
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     private fun onEventClicked() {
         val svc = recordingService ?: return
@@ -295,9 +304,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // UI helpers
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     private fun updateRecordingUI() {
         if (isRecording) {
@@ -373,9 +382,9 @@ class MainActivity : AppCompatActivity() {
         tvRecording.alpha = 1f
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Settings — recording segment (loop) duration
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     private fun prefs(): SharedPreferences =
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -383,16 +392,28 @@ class MainActivity : AppCompatActivity() {
     private fun loadSegmentMinutes(): Int =
         prefs().getInt(KEY_SEGMENT_MINUTES, DEFAULT_SEGMENT_MINUTES)
 
+    private fun loadAutoStart(): Boolean =
+        prefs().getBoolean(KEY_AUTO_START, true)
+
     private fun showSegmentDurationDialog() {
+        val padding = (16 * resources.displayMetrics.density).toInt()
+
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(loadSegmentMinutes().toString())
             setSelection(text.length)
         }
-        val padding = (16 * resources.displayMetrics.density).toInt()
-        val container = android.widget.FrameLayout(this).apply {
+        val checkAutoStart = CheckBox(this).apply {
+            text = getString(R.string.auto_start_label)
+            isChecked = loadAutoStart()
+            val vPad = (8 * resources.displayMetrics.density).toInt()
+            setPadding(0, vPad, 0, 0)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             setPadding(padding, padding / 2, padding, 0)
             addView(input)
+            addView(checkAutoStart)
         }
 
         AlertDialog.Builder(this)
@@ -400,6 +421,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage(R.string.segment_duration_message)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
+                prefs().edit().putBoolean(KEY_AUTO_START, checkAutoStart.isChecked).apply()
                 val minutes = input.text.toString().toIntOrNull()
                 if (minutes == null || minutes < MIN_SEGMENT_MINUTES || minutes > MAX_SEGMENT_MINUTES) {
                     Toast.makeText(this, R.string.segment_duration_invalid, Toast.LENGTH_SHORT).show()
@@ -412,9 +434,9 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
     // Settings — daytime text-color hours
-    // ══════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     private fun showDaytimeDialog() {
         val settings = recordingService?.getDaytimeSettings() ?: run {
