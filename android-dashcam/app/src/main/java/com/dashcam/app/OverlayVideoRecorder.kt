@@ -784,17 +784,9 @@ class OverlayVideoRecorder(
             textSize = textSz
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
-        val strokeColor = if (_overlayTextColor == Color.WHITE) Color.BLACK else Color.WHITE
-        val stroke = Paint(paint).apply {
-            style       = Paint.Style.STROKE
-            color       = strokeColor
-            strokeWidth = textSz * 0.08f
-            alpha       = 200
-        }
 
         fun drawLabeled(text: String, x: Float, y: Float) {
             if (text.isBlank()) return
-            canvas.drawText(text, x, y, stroke)
             canvas.drawText(text, x, y, paint)
         }
 
