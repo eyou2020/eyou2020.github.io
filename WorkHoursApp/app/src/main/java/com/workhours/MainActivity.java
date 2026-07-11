@@ -40,6 +40,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRemoteDays;
     private TextView tvRemoteRatio;
     private TextView tvRemoteHours;
+    private TextView tvWeekdayNight;
+    private TextView tvHolidayDay;
+    private TextView tvHolidayNight;
     private TextView btnSetTarget;
     private TextView btnWorkSettings;
     private TextView btnVacationSettings;
@@ -136,6 +139,9 @@ public class MainActivity extends AppCompatActivity {
         tvRemoteDays        = findViewById(R.id.tv_remote_days);
         tvRemoteRatio       = findViewById(R.id.tv_remote_ratio);
         tvRemoteHours       = findViewById(R.id.tv_remote_hours);
+        tvWeekdayNight      = findViewById(R.id.tv_weekday_night);
+        tvHolidayDay        = findViewById(R.id.tv_holiday_day);
+        tvHolidayNight      = findViewById(R.id.tv_holiday_night);
         btnSetTarget        = findViewById(R.id.btn_set_target);
         btnWorkSettings     = findViewById(R.id.btn_work_settings);
         btnVacationSettings = findViewById(R.id.btn_vacation_settings);
@@ -430,6 +436,32 @@ public class MainActivity extends AppCompatActivity {
             tvShortage.setText("부족 : -" + fmtSec(shortageSec));
             tvShortage.setTextColor(Color.parseColor("#C62828"));
         }
+
+        // ── 시간대별 합산 (평일야간, 휴일주간, 휴일야간) ──────────
+        long weekdayNightSec = 0, holidayDaySec = 0, holidayNightSec = 0;
+        for (Map.Entry<String, WorkRecord> e : allRecords.entrySet()) {
+            WorkRecord r = e.getValue();
+            String dateStr = e.getKey();
+            int d = Integer.parseInt(dateStr.split("-")[2]);
+            boolean isHoW = isHolidayOrWeekendDate(dateStr, holidays);
+            int[] segs;
+            if (r.isInProgress() && d == todayDay && year == todayYear && month == todayMonth) {
+                int rawMin = Math.max(0, (todayH * 60 + todayM) - (r.getStartHour() * 60 + r.getStartMinute()));
+                int brk = r.getCustomBreakMinutes() >= 0 ? r.getCustomBreakMinutes()
+                        : (rawMin >= 540 ? 60 : rawMin >= 270 ? 30 : 0);
+                segs = r.getTimeSegmentsMinutes(isHoW, todayH, todayM, brk);
+            } else if (!r.isInProgress()) {
+                segs = r.getTimeSegmentsMinutes(isHoW, r.getEndHour(), r.getEndMinute(), r.getBreakMinutes());
+            } else {
+                continue;
+            }
+            weekdayNightSec += segs[1] * 60L;
+            holidayDaySec   += segs[2] * 60L;
+            holidayNightSec += segs[3] * 60L;
+        }
+        tvWeekdayNight.setText("평일야간: " + fmtSec(weekdayNightSec));
+        tvHolidayDay.setText("휴일주간: " + fmtSec(holidayDaySec));
+        tvHolidayNight.setText("휴일야간: " + fmtSec(holidayNightSec));
 
         // ── 재택 통계 ────────────────────────────────────────────
         // 근무일수: 근무(NONE) + 반차(HALF) + 재택(REMOTE) 기록이 있는 날

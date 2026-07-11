@@ -139,6 +139,15 @@
                 android:textStyle="bold"
                 android:layout_marginTop="2dp"
                 android:text="부족: -" />
+
+            <TextView
+                android:id="@+id/tv_weekday_night"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#5C6BC0"
+                android:layout_marginTop="2dp"
+                android:text="평일야간: -" />
         </LinearLayout>
 
         <!-- 구분선 -->
@@ -191,6 +200,24 @@
                 android:textColor="#1565C0"
                 android:layout_marginTop="2dp"
                 android:text="재택시간: -" />
+
+            <TextView
+                android:id="@+id/tv_holiday_day"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#E65100"
+                android:layout_marginTop="2dp"
+                android:text="휴일주간: -" />
+
+            <TextView
+                android:id="@+id/tv_holiday_night"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#B71C1C"
+                android:layout_marginTop="2dp"
+                android:text="휴일야간: -" />
         </LinearLayout>
     </LinearLayout>
 
