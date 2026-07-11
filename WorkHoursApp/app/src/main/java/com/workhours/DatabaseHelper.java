@@ -17,11 +17,12 @@ import java.util.Map;
  * v2 → v3 : is_annual_leave 컬럼 추가
  * v3 → v4 : leave_type 컬럼 추가 (is_annual_leave 값 마이그레이션),
  *            vacation_settings 테이블 추가
+ * v4 → v5 : outing_records 테이블 추가
  */
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DB_NAME    = "work_hours.db";
-    private static final int    DB_VERSION = 4;
+    private static final int    DB_VERSION = 5;
 
     // work_records 테이블
     private static final String TABLE_WORK      = "work_records";
@@ -38,6 +39,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String TABLE_MONTHLY   = "monthly_target";
     private static final String COL_MONTH       = "month";
     private static final String COL_TARGET_MIN  = "target_minutes";
+
+    // outing_records 테이블
+    private static final String TABLE_OUTING     = "outing_records";
+    private static final String COL_OUT_ID       = "id";
+    private static final String COL_OUT_DATE     = "date";
+    private static final String COL_OUT_START    = "start_sec";
+    private static final String COL_OUT_END      = "end_sec";
 
     // vacation_settings 테이블
     private static final String TABLE_VACATION       = "vacation_settings";
@@ -72,6 +80,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COL_VAC_END         + " TEXT, "
                 + COL_VAC_ANNUAL_DAYS + " INTEGER DEFAULT 15"
                 + ")");
+        db.execSQL("CREATE TABLE " + TABLE_OUTING + " ("
+                + COL_OUT_ID    + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + COL_OUT_DATE  + " TEXT NOT NULL, "
+                + COL_OUT_START + " INTEGER NOT NULL, "
+                + COL_OUT_END   + " INTEGER DEFAULT -1"
+                + ")");
     }
 
     @Override
@@ -98,6 +112,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + COL_VAC_START       + " TEXT, "
                     + COL_VAC_END         + " TEXT, "
                     + COL_VAC_ANNUAL_DAYS + " INTEGER DEFAULT 15"
+                    + ")");
+        }
+        if (oldVersion < 5) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_OUTING + " ("
+                    + COL_OUT_ID    + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + COL_OUT_DATE  + " TEXT NOT NULL, "
+                    + COL_OUT_START + " INTEGER NOT NULL, "
+                    + COL_OUT_END   + " INTEGER DEFAULT -1"
                     + ")");
         }
     }
@@ -254,5 +276,50 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         c.close(); db.close();
         return vs;
+    }
+
+    // ── 외출 기록 CRUD ────────────────────────────────────────
+
+    public long insertOuting(String date, int startSec) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COL_OUT_DATE,  date);
+        cv.put(COL_OUT_START, startSec);
+        cv.put(COL_OUT_END,   -1);
+        long id = db.insert(TABLE_OUTING, null, cv);
+        db.close();
+        return id;
+    }
+
+    public void finishOuting(long id, int endSec) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COL_OUT_END, endSec);
+        db.update(TABLE_OUTING, cv, COL_OUT_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public List<OutingRecord> getOutings(String date) {
+        List<OutingRecord> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.query(TABLE_OUTING, null,
+                COL_OUT_DATE + "=?", new String[]{date},
+                null, null, COL_OUT_START + " ASC");
+        while (c.moveToNext()) {
+            list.add(new OutingRecord(
+                    c.getLong(c.getColumnIndexOrThrow(COL_OUT_ID)),
+                    date,
+                    c.getInt(c.getColumnIndexOrThrow(COL_OUT_START)),
+                    c.getInt(c.getColumnIndexOrThrow(COL_OUT_END))
+            ));
+        }
+        c.close(); db.close();
+        return list;
+    }
+
+    public void deleteOuting(long id) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_OUTING, COL_OUT_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
     }
 }

@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,7 +23,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 public class DayDetailActivity extends AppCompatActivity {
 
@@ -61,6 +64,29 @@ public class DayDetailActivity extends AppCompatActivity {
     private Handler  timerHandler;
     private Runnable timerRunnable;
 
+    // ── 시간 구분 / 외출 ──────────────────────────────────────
+    private boolean  isHolidayOrWeekend = false;
+    private long     activeOutingId     = -1;
+    private int      outingStartSec     = 0;
+    private boolean  isOutingActive     = false;
+    private Handler  outingHandler;
+    private Runnable outingRunnable;
+    private List<OutingRecord> outingList = new ArrayList<>();
+
+    private LinearLayout llSegContainer;
+    private LinearLayout llSegWeekdayNight;
+    private LinearLayout llSegHolidayDay;
+    private LinearLayout llSegHolidayNight;
+    private TextView     tvSegRegular;
+    private TextView     tvSegWeekdayNight;
+    private TextView     tvSegHolidayDay;
+    private TextView     tvSegHolidayNight;
+    private Button       btnOutingStart;
+    private Button       btnOutingEnd;
+    private TextView     tvOutingElapsed;
+    private TextView     tvOutingTotal;
+    private LinearLayout llOutingRows;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -84,6 +110,7 @@ public class DayDetailActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopTimer();
+        stopOutingTimer();
     }
 
     private void initViews() {
@@ -107,6 +134,20 @@ public class DayDetailActivity extends AppCompatActivity {
         btnRemoteWork  = findViewById(R.id.btn_remote_work);
         btnSave        = findViewById(R.id.btn_save);
         btnDelete      = findViewById(R.id.btn_delete);
+
+        llSegContainer    = findViewById(R.id.ll_seg_container);
+        llSegWeekdayNight = findViewById(R.id.ll_seg_weekday_night);
+        llSegHolidayDay   = findViewById(R.id.ll_seg_holiday_day);
+        llSegHolidayNight = findViewById(R.id.ll_seg_holiday_night);
+        tvSegRegular      = findViewById(R.id.tv_seg_regular);
+        tvSegWeekdayNight = findViewById(R.id.tv_seg_weekday_night);
+        tvSegHolidayDay   = findViewById(R.id.tv_seg_holiday_day);
+        tvSegHolidayNight = findViewById(R.id.tv_seg_holiday_night);
+        btnOutingStart    = findViewById(R.id.btn_outing_start);
+        btnOutingEnd      = findViewById(R.id.btn_outing_end);
+        tvOutingElapsed   = findViewById(R.id.tv_outing_elapsed);
+        tvOutingTotal     = findViewById(R.id.tv_outing_total);
+        llOutingRows      = findViewById(R.id.ll_outing_rows);
     }
 
     private void loadRecord() {
@@ -128,6 +169,15 @@ public class DayDetailActivity extends AppCompatActivity {
                 cal.get(Calendar.MONTH) + 1,
                 cal.get(Calendar.DAY_OF_MONTH));
         isToday = date.equals(today);
+
+        // 공휴일/주말 여부
+        String[] dp = date.split("-");
+        Calendar dateCal = Calendar.getInstance();
+        dateCal.set(Integer.parseInt(dp[0]), Integer.parseInt(dp[1]) - 1, Integer.parseInt(dp[2]));
+        int dateDow = dateCal.get(Calendar.DAY_OF_WEEK);
+        boolean isWeekend = (dateDow == Calendar.SATURDAY || dateDow == Calendar.SUNDAY);
+        boolean isHoliday = KoreanHolidays.getHolidayName(date) != null;
+        isHolidayOrWeekend = isWeekend || isHoliday;
         int checkBtnVisibility = isToday ? View.VISIBLE : View.GONE;
         btnCheckIn.setVisibility(checkBtnVisibility);
         btnCheckOut.setVisibility(checkBtnVisibility);
@@ -147,6 +197,9 @@ public class DayDetailActivity extends AppCompatActivity {
         leaveType = record.getLeaveType();
         updateLeaveUI();
 
+        // 외출 기록 로드
+        outingList = new ArrayList<>(dbHelper.getOutings(date));
+
         // 오늘 진행 중 기록이면 타이머 자동 재시작
         // checkInMillis = 현재시각 - (현재시각 - 출근시각) 초 단위로 계산해 화면 열 때마다 리셋 방지
         if (record.isInProgress() && isToday) {
@@ -162,6 +215,7 @@ public class DayDetailActivity extends AppCompatActivity {
         } else {
             updateDisplay();
         }
+        refreshOutingUI();
     }
 
     /** 휴가 버튼 4개 외관 + 카드 표시 업데이트 */
@@ -242,6 +296,7 @@ public class DayDetailActivity extends AppCompatActivity {
             updatingBreak = false;
             tvNetWork.setText("실 근무시간: -");
             tvNetWork.setTextColor(Color.parseColor("#616161"));
+            llSegContainer.setVisibility(View.GONE);
             btnDelete.setVisibility(View.VISIBLE);
             return;
         }
@@ -272,6 +327,29 @@ public class DayDetailActivity extends AppCompatActivity {
         tvNetWork.setTextColor(net >= 480 ? Color.parseColor("#2E7D32")
                 : net >= 240 ? Color.parseColor("#E65100")
                 : Color.parseColor("#C62828"));
+        updateSegments();
+    }
+
+    private void updateSegments() {
+        if (leaveType == WorkRecord.LEAVE_ANNUAL || leaveType == WorkRecord.LEAVE_PUBLIC
+                || record.isInProgress()) {
+            llSegContainer.setVisibility(View.GONE);
+            return;
+        }
+        int[] segs = record.getTimeSegmentsMinutes(isHolidayOrWeekend,
+                record.getEndHour(), record.getEndMinute(), getBreakForCalc());
+        displaySegments(segs);
+    }
+
+    private void displaySegments(int[] segs) {
+        llSegContainer.setVisibility(View.VISIBLE);
+        tvSegRegular.setText(fmtMin(segs[0]));
+        llSegWeekdayNight.setVisibility(segs[1] > 0 ? View.VISIBLE : View.GONE);
+        if (segs[1] > 0) tvSegWeekdayNight.setText(fmtMin(segs[1]));
+        llSegHolidayDay.setVisibility(segs[2] > 0 ? View.VISIBLE : View.GONE);
+        if (segs[2] > 0) tvSegHolidayDay.setText(fmtMin(segs[2]));
+        llSegHolidayNight.setVisibility(segs[3] > 0 ? View.VISIBLE : View.GONE);
+        if (segs[3] > 0) tvSegHolidayNight.setText(fmtMin(segs[3]));
     }
 
     /** 실제 계산에 사용할 휴게시간(분): 빈칸이면 자동계산, 값이 있으면 그 값 */
@@ -345,6 +423,13 @@ public class DayDetailActivity extends AppCompatActivity {
         tvNetWork.setTextColor(netMin >= 480 ? Color.parseColor("#2E7D32")
                 : netMin >= 240 ? Color.parseColor("#E65100")
                 : Color.parseColor("#C62828"));
+
+        // 시간 구분 실시간 표시
+        Calendar segNow = Calendar.getInstance();
+        int[] segs = record.getTimeSegmentsMinutes(isHolidayOrWeekend,
+                segNow.get(Calendar.HOUR_OF_DAY), segNow.get(Calendar.MINUTE),
+                (int)(breakSec / 60));
+        displaySegments(segs);
     }
 
     // ── 리스너 ───────────────────────────────────────────────
@@ -491,6 +576,9 @@ public class DayDetailActivity extends AppCompatActivity {
             finish();
         });
 
+        btnOutingStart.setOnClickListener(v -> startOuting());
+        btnOutingEnd.setOnClickListener(v -> stopOuting());
+
         btnDelete.setOnClickListener(v -> {
             new AlertDialog.Builder(DayDetailActivity.this)
                     .setTitle("삭제 확인")
@@ -531,6 +619,136 @@ public class DayDetailActivity extends AppCompatActivity {
     private String fmtMin(int minutes) {
         int h = minutes / 60, m = minutes % 60;
         return m == 0 ? h + "시간" : h + "시간 " + m + "분";
+    }
+
+    // ── 외출 ─────────────────────────────────────────────────
+
+    private void startOuting() {
+        Calendar now = Calendar.getInstance();
+        int startSec = now.get(Calendar.HOUR_OF_DAY) * 3600
+                     + now.get(Calendar.MINUTE) * 60
+                     + now.get(Calendar.SECOND);
+        activeOutingId = dbHelper.insertOuting(date, startSec);
+        outingStartSec = startSec;
+        isOutingActive = true;
+        btnOutingStart.setEnabled(false);
+        btnOutingEnd.setEnabled(true);
+        startOutingTimer();
+    }
+
+    private void stopOuting() {
+        Calendar now = Calendar.getInstance();
+        int endSec = now.get(Calendar.HOUR_OF_DAY) * 3600
+                   + now.get(Calendar.MINUTE) * 60
+                   + now.get(Calendar.SECOND);
+        dbHelper.finishOuting(activeOutingId, endSec);
+        stopOutingTimer();
+        isOutingActive = false;
+        activeOutingId = -1;
+        tvOutingElapsed.setText("경과: --:--:--");
+        btnOutingStart.setEnabled(true);
+        btnOutingEnd.setEnabled(false);
+        outingList = new ArrayList<>(dbHelper.getOutings(date));
+        refreshOutingUI();
+    }
+
+    private void startOutingTimer() {
+        outingHandler = new Handler(Looper.getMainLooper());
+        outingRunnable = new Runnable() {
+            @Override public void run() {
+                if (!isOutingActive) return;
+                Calendar now = Calendar.getInstance();
+                int nowSec = now.get(Calendar.HOUR_OF_DAY) * 3600
+                           + now.get(Calendar.MINUTE) * 60
+                           + now.get(Calendar.SECOND);
+                int elapsed = nowSec - outingStartSec;
+                if (elapsed < 0) elapsed += 86400;
+                tvOutingElapsed.setText(String.format("경과: %02d:%02d:%02d",
+                        elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60));
+                outingHandler.postDelayed(this, 1000);
+            }
+        };
+        outingHandler.post(outingRunnable);
+    }
+
+    private void stopOutingTimer() {
+        if (outingHandler != null && outingRunnable != null) {
+            outingHandler.removeCallbacks(outingRunnable);
+        }
+    }
+
+    private void refreshOutingUI() {
+        int totalSec = 0;
+        for (OutingRecord r : outingList) {
+            if (!r.isOngoing()) totalSec += r.durationSec();
+        }
+
+        int breakSec = getBreakForCalc() * 60;
+        int displaySec = (breakSec > 0) ? Math.min(totalSec, breakSec) : totalSec;
+
+        if (totalSec == 0) {
+            tvOutingTotal.setText("일 누적: --");
+        } else {
+            tvOutingTotal.setText(String.format("일 누적: %d분 %02d초",
+                    displaySec / 60, displaySec % 60));
+        }
+
+        llOutingRows.removeAllViews();
+        for (OutingRecord r : outingList) {
+            if (!r.isOngoing()) addOutingRow(r);
+        }
+    }
+
+    private void addOutingRow(OutingRecord r) {
+        float density = getResources().getDisplayMetrics().density;
+        int padV = (int)(4 * density);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, padV, 0, padV);
+
+        if (r.durationSec() <= 600) {
+            row.setBackgroundColor(Color.parseColor("#E8F5E9"));
+        }
+
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+
+        TextView tvStart = new TextView(this);
+        tvStart.setLayoutParams(p);
+        tvStart.setText(r.startTimeStr());
+        tvStart.setTextSize(11f);
+        tvStart.setGravity(Gravity.CENTER);
+        row.addView(tvStart);
+
+        TextView tvEnd = new TextView(this);
+        tvEnd.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        tvEnd.setText(r.endTimeStr());
+        tvEnd.setTextSize(11f);
+        tvEnd.setGravity(Gravity.CENTER);
+        row.addView(tvEnd);
+
+        TextView tvDur = new TextView(this);
+        tvDur.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        tvDur.setText(r.durationStr());
+        tvDur.setTextSize(11f);
+        tvDur.setGravity(Gravity.CENTER);
+        row.addView(tvDur);
+
+        Button btnDel = new Button(this);
+        btnDel.setLayoutParams(new LinearLayout.LayoutParams(
+                (int)(52 * density), LinearLayout.LayoutParams.WRAP_CONTENT));
+        btnDel.setText("삭제");
+        btnDel.setTextSize(9f);
+        btnDel.setOnClickListener(v -> {
+            dbHelper.deleteOuting(r.id);
+            outingList = new ArrayList<>(dbHelper.getOutings(date));
+            refreshOutingUI();
+        });
+        row.addView(btnDel);
+
+        llOutingRows.addView(row);
     }
 
     interface OnTimeSet { void onSet(int hour, int minute); }

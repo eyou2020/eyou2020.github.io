@@ -142,6 +142,33 @@ public class WorkRecord {
         return Math.max(0, rawSec - brk * 60L);
     }
 
+    /**
+     * 시간 구분별 근무시간(분) — 휴게시간 차감 후
+     * [0]=근무(평일 6-22), [1]=평일야간(0-6,22-24), [2]=휴일주간(6-22), [3]=휴일야간(0-6,22-24)
+     */
+    public int[] getTimeSegmentsMinutes(boolean isHolidayOrWeekend, int endH, int endM, int breakMin) {
+        if (leaveType == LEAVE_ANNUAL || leaveType == LEAVE_PUBLIC) return new int[]{0, 0, 0, 0};
+        int startMin = startHour * 60 + startMinute;
+        int endMin   = endH * 60 + endM;
+        if (endMin <= startMin) return new int[]{0, 0, 0, 0};
+
+        final int DAY_START = 360;  // 6:00
+        final int DAY_END   = 1320; // 22:00
+
+        int earlyNight = Math.max(0, Math.min(endMin, DAY_START) - startMin);
+        int dayTime    = Math.max(0, Math.min(endMin, DAY_END) - Math.max(startMin, DAY_START));
+        int lateNight  = Math.max(0, endMin - Math.max(startMin, DAY_END));
+        int nightTime  = earlyNight + lateNight;
+
+        int netDay = Math.max(0, dayTime - breakMin);
+        int remainBrk = Math.max(0, breakMin - dayTime);
+        int netNight  = Math.max(0, nightTime - remainBrk);
+
+        return isHolidayOrWeekend
+                ? new int[]{0, 0, netDay, netNight}
+                : new int[]{netDay, netNight, 0, 0};
+    }
+
     public String getStartTimeString() {
         return String.format("%02d:%02d", startHour, startMinute);
     }

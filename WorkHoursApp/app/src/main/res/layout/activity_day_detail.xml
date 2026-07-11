@@ -236,6 +236,112 @@
                 android:textColor="#2E7D32"
                 android:gravity="center"
                 android:text="실 근무시간: -" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#EEEEEE"
+                android:layout_marginTop="10dp" android:layout_marginBottom="8dp"/>
+
+            <!-- 시간 구분 (근무/평일야간/휴일주간/휴일야간) -->
+            <LinearLayout
+                android:id="@+id/ll_seg_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp">
+                    <TextView
+                        android:layout_width="68dp"
+                        android:layout_height="wrap_content"
+                        android:text="근무"
+                        android:textSize="12sp"
+                        android:textColor="#424242" />
+                    <TextView
+                        android:id="@+id/tv_seg_regular"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#2E7D32" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_seg_weekday_night"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="68dp"
+                        android:layout_height="wrap_content"
+                        android:text="평일야간"
+                        android:textSize="12sp"
+                        android:textColor="#424242" />
+                    <TextView
+                        android:id="@+id/tv_seg_weekday_night"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#5C6BC0" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_seg_holiday_day"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="68dp"
+                        android:layout_height="wrap_content"
+                        android:text="휴일주간"
+                        android:textSize="12sp"
+                        android:textColor="#424242" />
+                    <TextView
+                        android:id="@+id/tv_seg_holiday_day"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#E65100" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_seg_holiday_night"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="68dp"
+                        android:layout_height="wrap_content"
+                        android:text="휴일야간"
+                        android:textSize="12sp"
+                        android:textColor="#424242" />
+                    <TextView
+                        android:id="@+id/tv_seg_holiday_night"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#B71C1C" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
         <!-- ── 휴가 안내 (선택한 유형에 따라 표시) ── -->
@@ -330,6 +436,115 @@
             android:textColor="#C62828"
             android:background="@drawable/bg_delete_button"
             android:visibility="gone" />
+
+        <!-- ── 외출 기록 ── -->
+        <LinearLayout
+            android:id="@+id/ll_outing_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="14dp"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="외출 기록"
+                android:textSize="14sp"
+                android:textColor="#212121"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <Button
+                    android:id="@+id/btn_outing_start"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="외출시작"
+                    android:textSize="14sp"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_save_button"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_outing_end"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="외출종료"
+                    android:textSize="14sp"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_checkout_button"
+                    android:layout_marginStart="4dp"
+                    android:enabled="false" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_outing_elapsed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="경과: --:--:--"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#1565C0"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tv_outing_total"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="일 누적: --"
+                android:textSize="13sp"
+                android:textColor="#616161"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#EEEEEE" android:layout_marginBottom="8dp"/>
+
+            <!-- 그리드 헤더 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="4dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="시작"
+                    android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="#424242" android:gravity="center" />
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="종료"
+                    android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="#424242" android:gravity="center" />
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="외출시간"
+                    android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="#424242" android:gravity="center" />
+
+                <TextView android:layout_width="52dp" android:layout_height="wrap_content"
+                    android:text="삭제" android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="#424242" android:gravity="center" />
+            </LinearLayout>
+
+            <!-- 그리드 rows 컨테이너 (동적 추가) -->
+            <LinearLayout
+                android:id="@+id/ll_outing_rows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>
