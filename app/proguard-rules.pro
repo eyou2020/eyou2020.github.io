@@ -1,0 +1,1 @@
+-keep class com.parkingmanager.data.** { *; }

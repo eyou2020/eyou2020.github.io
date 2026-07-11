@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 헤더 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="12dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="12dp"
+            app:cardBackgroundColor="@color/primary">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="자주 사용하는 주차 위치를 등록하면\n주차 등록·이동 완료 시 선택해서 사용할 수 있습니다."
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:padding="16dp"
+                android:gravity="center" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 빈 목록 안내 -->
+        <TextView
+            android:id="@+id/tv_empty_locations"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="등록된 위치가 없습니다.\n오른쪽 아래 + 버튼으로 위치를 추가하세요."
+            android:gravity="center"
+            android:textSize="15sp"
+            android:textColor="@color/text_secondary"
+            android:padding="40dp"
+            android:visibility="gone" />
+
+        <!-- 위치 목록 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_locations"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="12dp"
+            android:paddingBottom="80dp"
+            android:clipToPadding="false" />
+
+    </LinearLayout>
+
+    <!-- 추가 FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_add_location"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:contentDescription="위치 추가"
+        app:srcCompat="@android:drawable/ic_input_add" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

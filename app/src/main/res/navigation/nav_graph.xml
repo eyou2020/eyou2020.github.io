@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.parking.manager.ui.home.HomeFragment"
+        android:label="현재 주차" />
+
+    <fragment
+        android:id="@+id/historyFragment"
+        android:name="com.parking.manager.ui.history.HistoryFragment"
+        android:label="주차 이력" />
+
+    <fragment
+        android:id="@+id/locationManagerFragment"
+        android:name="com.parking.manager.ui.location.LocationManagerFragment"
+        android:label="위치 관리" />
+
+</navigation>
