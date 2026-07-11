@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/mileageFragment"
+        android:icon="@drawable/ic_car"
+        android:title="주행기록" />
+    <item
+        android:id="@+id/fuelFragment"
+        android:icon="@drawable/ic_fuel"
+        android:title="주유기록" />
+    <item
+        android:id="@+id/statsFragment"
+        android:icon="@drawable/ic_stats"
+        android:title="통계" />
+</menu>

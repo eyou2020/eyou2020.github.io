@@ -1,0 +1,15 @@
+// pluginManagement은 반드시 settings.gradle 최상단에 위치해야 함
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
+}
+
+rootProject.name = "WorkHoursApp"
+include ':app'

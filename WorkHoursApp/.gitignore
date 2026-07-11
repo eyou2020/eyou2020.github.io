@@ -1,0 +1,25 @@
+# Android / Gradle 빌드 산출물
+*.iml
+.gradle/
+local.properties
+.idea/
+app/build/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# 키스토어 (보안)
+*.jks
+*.keystore
+
+# Firebase (로컬 전용 — 공유 시 별도 발급 필요)
+app/google-services.json
+
+# OS
+.DS_Store
+Thumbs.db

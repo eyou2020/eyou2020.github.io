@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mileageFragment">
+
+    <fragment
+        android:id="@+id/mileageFragment"
+        android:name="com.carmanager.ui.mileage.MileageFragment"
+        android:label="주행기록" />
+
+    <fragment
+        android:id="@+id/fuelFragment"
+        android:name="com.carmanager.ui.fuel.FuelFragment"
+        android:label="주유기록" />
+
+    <fragment
+        android:id="@+id/statsFragment"
+        android:name="com.carmanager.ui.stats.StatsFragment"
+        android:label="통계" />
+</navigation>
