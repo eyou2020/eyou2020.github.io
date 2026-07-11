@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="2dp"
+    android:minHeight="60dp"
+    android:background="#FFFFFF">
+
+    <!-- 날짜 숫자 -->
+    <TextView
+        android:id="@+id/tv_day"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="#212121"
+        android:layout_marginTop="1dp" />
+
+    <!-- 공휴일 이름 (빨강) -->
+    <TextView
+        android:id="@+id/tv_holiday"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="7.5sp"
+        android:textColor="#D32F2F"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:visibility="gone" />
+
+    <!-- 출근 시간 -->
+    <TextView
+        android:id="@+id/tv_cell_start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="8sp"
+        android:textColor="#1565C0"
+        android:gravity="center"
+        android:layout_marginTop="2dp"
+        android:visibility="invisible" />
+
+    <!-- 퇴근 시간 -->
+    <TextView
+        android:id="@+id/tv_cell_end"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="8sp"
+        android:textColor="#C62828"
+        android:gravity="center"
+        android:visibility="invisible" />
+
+    <!-- 근무시간 -->
+    <TextView
+        android:id="@+id/tv_work_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="9sp"
+        android:textColor="#2E7D32"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="1dp"
+        android:visibility="invisible" />
+
+    <!-- 휴가 유형 배지 (연차/반차/공가) -->
+    <TextView
+        android:id="@+id/tv_leave_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="1dp"
+        android:visibility="gone" />
+
+</LinearLayout>

@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <!-- ── 상단 월 네비게이션 ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#1565C0"
+        android:padding="4dp">
+
+        <ImageButton
+            android:id="@+id/btn_prev_month"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_arrow_left"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="이전 달" />
+
+        <TextView
+            android:id="@+id/tv_month_year"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:text="2025년 5월" />
+
+        <ImageButton
+            android:id="@+id/btn_next_month"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_arrow_right"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="다음 달" />
+    </LinearLayout>
+
+    <!-- ── 휴가 설정 / 휴가 조회 버튼 (년월 바로 아래) ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#1976D2"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/btn_vacation_settings"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="휴가 설정"
+            android:textColor="#1565C0"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="#FFFFFF"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginEnd="4dp" />
+
+        <TextView
+            android:id="@+id/btn_vacation_query"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="휴가 조회"
+            android:textColor="#1565C0"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="#FFFFFF"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- ── 요약 카드 (의무/근무/계획/부족  |  재택 통계) ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#FFFFFF"
+        android:padding="10dp"
+        android:gravity="center_vertical">
+
+        <!-- 왼쪽: 근무 지표 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_duty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#1565C0"
+                android:textStyle="bold"
+                android:text="의무: -" />
+
+            <TextView
+                android:id="@+id/tv_work"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#212121"
+                android:layout_marginTop="2dp"
+                android:text="근무: 0시간" />
+
+            <TextView
+                android:id="@+id/tv_plan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#424242"
+                android:layout_marginTop="2dp"
+                android:text="계획: -" />
+
+            <TextView
+                android:id="@+id/tv_shortage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp"
+                android:text="부족: -" />
+        </LinearLayout>
+
+        <!-- 구분선 -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#EEEEEE"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp" />
+
+        <!-- 오른쪽: 재택 통계 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_work_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#424242"
+                android:text="근무일수: -" />
+
+            <TextView
+                android:id="@+id/tv_remote_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#1565C0"
+                android:layout_marginTop="2dp"
+                android:text="재택일수: -" />
+
+            <TextView
+                android:id="@+id/tv_remote_ratio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#1565C0"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp"
+                android:text="재택비율: -" />
+
+            <TextView
+                android:id="@+id/tv_remote_hours"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#1565C0"
+                android:layout_marginTop="2dp"
+                android:text="재택시간: -" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ── 요일 헤더 ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:background="#E8EAF6">
+
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="일" android:textColor="#D32F2F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="월" android:textColor="#37474F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="화" android:textColor="#37474F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="수" android:textColor="#37474F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="목" android:textColor="#37474F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="금" android:textColor="#37474F" android:textStyle="bold" android:textSize="12sp"/>
+        <TextView android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:text="토" android:textColor="#1565C0" android:textStyle="bold" android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- ── 달력 그리드 ── -->
+    <GridView
+        android:id="@+id/grid_calendar"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:numColumns="7"
+        android:stretchMode="columnWidth"
+        android:horizontalSpacing="1dp"
+        android:verticalSpacing="1dp"
+        android:background="#BDBDBD"
+        android:padding="1dp" />
+
+    <!-- ── 의무 설정 / 근무 설정 버튼 (전체 반영 위) ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#FAFAFA">
+
+        <TextView
+            android:id="@+id/btn_set_target"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="의무 설정"
+            android:textColor="#1565C0"
+            android:textSize="13sp"
+            android:background="@drawable/bg_outlined_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_margin="4dp" />
+
+        <TextView
+            android:id="@+id/btn_work_settings"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="근무 설정"
+            android:textColor="#2E7D32"
+            android:textSize="13sp"
+            android:background="@drawable/bg_work_settings_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_margin="4dp" />
+    </LinearLayout>
+
+    <!-- ── 전체 반영 버튼 ── -->
+    <TextView
+        android:id="@+id/btn_bulk_apply"
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:gravity="center"
+        android:text="전체 반영"
+        android:textSize="15sp"
+        android:textColor="#FFFFFF"
+        android:background="#1565C0"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <!-- ── 전체 초기화 버튼 ── -->
+    <TextView
+        android:id="@+id/btn_reset"
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:gravity="center"
+        android:text="전체 초기화"
+        android:textSize="15sp"
+        android:textColor="#FFFFFF"
+        android:background="#C62828"
+        android:clickable="true"
+        android:focusable="true" />
+
+</LinearLayout>

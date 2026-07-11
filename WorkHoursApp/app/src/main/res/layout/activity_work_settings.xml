@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_work_settings"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="요일별 출퇴근 시간 설정"
+            android:textSize="15sp"
+            android:textColor="#212121"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="설정한 시간이 '근무 시간 입력'의 초기값으로 사용됩니다."
+            android:textSize="12sp"
+            android:textColor="#9E9E9E"
+            android:layout_marginBottom="14dp" />
+
+        <!-- 요일 행 공통: 요일(56dp) | 출근(wrap) | 시간(weight=1) | 퇴근(wrap) | 시간(weight=1) -->
+
+        <!-- ── 월요일 ── -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="#FFFFFF" android:padding="14dp" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="56dp" android:layout_height="wrap_content"
+                android:text="월요일" android:textSize="14sp" android:textStyle="bold" android:textColor="#212121"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="출근" android:textSize="13sp" android:textColor="#424242" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_start_mon" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="08:00" android:textSize="18sp" android:textColor="#1565C0" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="퇴근" android:textSize="13sp" android:textColor="#424242"
+                android:layout_marginStart="12dp" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_end_mon" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="17:00" android:textSize="18sp" android:textColor="#C62828" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- ── 화요일 ── -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="#FFFFFF" android:padding="14dp" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="56dp" android:layout_height="wrap_content"
+                android:text="화요일" android:textSize="14sp" android:textStyle="bold" android:textColor="#212121"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="출근" android:textSize="13sp" android:textColor="#424242" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_start_tue" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="08:00" android:textSize="18sp" android:textColor="#1565C0" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="퇴근" android:textSize="13sp" android:textColor="#424242"
+                android:layout_marginStart="12dp" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_end_tue" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="17:00" android:textSize="18sp" android:textColor="#C62828" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- ── 수요일 ── -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="#FFFFFF" android:padding="14dp" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="56dp" android:layout_height="wrap_content"
+                android:text="수요일" android:textSize="14sp" android:textStyle="bold" android:textColor="#212121"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="출근" android:textSize="13sp" android:textColor="#424242" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_start_wed" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="08:00" android:textSize="18sp" android:textColor="#1565C0" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="퇴근" android:textSize="13sp" android:textColor="#424242"
+                android:layout_marginStart="12dp" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_end_wed" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="17:00" android:textSize="18sp" android:textColor="#C62828" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- ── 목요일 ── -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="#FFFFFF" android:padding="14dp" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="56dp" android:layout_height="wrap_content"
+                android:text="목요일" android:textSize="14sp" android:textStyle="bold" android:textColor="#212121"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="출근" android:textSize="13sp" android:textColor="#424242" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_start_thu" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="08:00" android:textSize="18sp" android:textColor="#1565C0" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="퇴근" android:textSize="13sp" android:textColor="#424242"
+                android:layout_marginStart="12dp" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_end_thu" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="17:00" android:textSize="18sp" android:textColor="#C62828" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- ── 금요일 ── -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="#FFFFFF" android:padding="14dp" android:layout_marginBottom="20dp">
+            <TextView android:layout_width="56dp" android:layout_height="wrap_content"
+                android:text="금요일" android:textSize="14sp" android:textStyle="bold" android:textColor="#212121"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="출근" android:textSize="13sp" android:textColor="#424242" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_start_fri" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="08:00" android:textSize="18sp" android:textColor="#1565C0" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="퇴근" android:textSize="13sp" android:textColor="#424242"
+                android:layout_marginStart="12dp" android:layout_marginEnd="6dp"/>
+            <TextView android:id="@+id/tv_end_fri" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="17:00" android:textSize="18sp" android:textColor="#C62828" android:textStyle="bold"
+                android:gravity="center" android:background="@drawable/bg_outlined_button"
+                android:paddingTop="4dp" android:paddingBottom="4dp" android:clickable="true" android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- 저장 버튼 -->
+        <Button
+            android:id="@+id/btn_settings_save"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="저  장"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:background="@drawable/bg_save_button" />
+
+    </LinearLayout>
+</ScrollView>

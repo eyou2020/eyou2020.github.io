@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_day_detail"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <!-- 날짜 제목 -->
+        <TextView
+            android:id="@+id/tv_detail_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="19sp"
+            android:textColor="#1565C0"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="12dp"
+            android:text="2025년 5월 1일" />
+
+        <!-- ── 출퇴근 시간 카드 ── -->
+        <LinearLayout
+            android:id="@+id/layout_time_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="14dp"
+            android:layout_marginBottom="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="근무 시간 입력"
+                android:textSize="14sp"
+                android:textColor="#212121"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <!-- 출근 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="52dp"
+                    android:layout_height="wrap_content"
+                    android:text="출근"
+                    android:textSize="14sp"
+                    android:textColor="#424242" />
+
+                <TextView
+                    android:id="@+id/tv_start_time"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="28sp"
+                    android:textColor="#1565C0"
+                    android:textStyle="bold"
+                    android:text="09:00" />
+
+                <Button
+                    android:id="@+id/btn_checkin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="출근"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_checkin_button"
+                    android:textColor="#FFFFFF"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_edit_start"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="변경"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_primary_button"
+                    android:textColor="#FFFFFF"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#EEEEEE"/>
+
+            <!-- 퇴근 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:layout_width="52dp"
+                    android:layout_height="wrap_content"
+                    android:text="퇴근"
+                    android:textSize="14sp"
+                    android:textColor="#424242" />
+
+                <TextView
+                    android:id="@+id/tv_end_time"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="28sp"
+                    android:textColor="#C62828"
+                    android:textStyle="bold"
+                    android:text="18:00" />
+
+                <Button
+                    android:id="@+id/btn_checkout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="퇴근"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_checkout_button"
+                    android:textColor="#FFFFFF"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:layout_marginEnd="4dp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_edit_end"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="변경"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_primary_button"
+                    android:textColor="#FFFFFF"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ── 근무시간 계산 카드 ── -->
+        <LinearLayout
+            android:id="@+id/layout_calc_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="근무시간 계산"
+                android:textSize="14sp"
+                android:textColor="#212121"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tv_raw_work"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#616161"
+                android:layout_marginBottom="8dp"
+                android:text="총 체류 시간: -" />
+
+            <!-- 휴게시간 입력 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="휴게시간"
+                    android:textSize="13sp"
+                    android:textColor="#E65100" />
+
+                <EditText
+                    android:id="@+id/et_break_minutes"
+                    android:layout_width="68dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="8dp"
+                    android:inputType="number"
+                    android:textSize="16sp"
+                    android:textColor="#E65100"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:maxLength="3"
+                    android:hint="0"
+                    android:background="@drawable/bg_outlined_button"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="5dp"
+                    android:text="분"
+                    android:textSize="13sp"
+                    android:textColor="#616161" />
+
+                <TextView
+                    android:id="@+id/tv_break_hint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="end"
+                    android:textSize="11sp"
+                    android:textColor="#9E9E9E"
+                    android:text="자동: 60분" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#EEEEEE" android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:id="@+id/tv_net_work"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#2E7D32"
+                android:gravity="center"
+                android:text="실 근무시간: -" />
+        </LinearLayout>
+
+        <!-- ── 휴가 안내 (선택한 유형에 따라 표시) ── -->
+        <TextView
+            android:id="@+id/tv_annual_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#C62828"
+            android:gravity="center"
+            android:layout_marginBottom="6dp"
+            android:visibility="gone" />
+
+        <!-- ── 휴가 버튼 4개 (연차 / 반차 / 공가 / 재택) ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btn_annual_leave"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="연차"
+                android:textSize="13sp"
+                android:textColor="#757575"
+                android:textStyle="bold"
+                android:background="@drawable/bg_leave_inactive"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btn_half_leave"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="반차"
+                android:textSize="13sp"
+                android:textColor="#757575"
+                android:textStyle="bold"
+                android:background="@drawable/bg_leave_inactive"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btn_public_leave"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="공가"
+                android:textSize="13sp"
+                android:textColor="#757575"
+                android:textStyle="bold"
+                android:background="@drawable/bg_leave_inactive"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btn_remote_work"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="재택"
+                android:textSize="13sp"
+                android:textColor="#757575"
+                android:textStyle="bold"
+                android:background="@drawable/bg_leave_inactive"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+
+        <!-- ── 저장 버튼 ── -->
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="저  장"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:background="@drawable/bg_save_button"
+            android:layout_marginBottom="10dp" />
+
+        <!-- ── 삭제 버튼 ── -->
+        <Button
+            android:id="@+id/btn_delete"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:text="이 날 기록 삭제"
+            android:textSize="13sp"
+            android:textColor="#C62828"
+            android:background="@drawable/bg_delete_button"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>
