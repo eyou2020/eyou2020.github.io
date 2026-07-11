@@ -88,136 +88,181 @@
             android:layout_marginStart="4dp" />
     </LinearLayout>
 
-    <!-- ── 요약 카드 (의무/근무/계획/부족  |  재택 통계) ── -->
+    <!-- ── 요약 카드 ── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="#FFFFFF"
-        android:padding="10dp"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:background="#FFFFFF">
 
-        <!-- 왼쪽: 근무 지표 -->
+        <!-- 상단: 의무/근무/계획/부족  |  재택 통계 -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/tv_duty"
-                android:layout_width="wrap_content"
+            <!-- 왼쪽: 근무 지표 -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#1565C0"
-                android:textStyle="bold"
-                android:text="의무: -" />
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tv_work"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#212121"
-                android:layout_marginTop="2dp"
-                android:text="근무: 0시간" />
+                <TextView
+                    android:id="@+id/tv_duty"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#1565C0"
+                    android:textStyle="bold"
+                    android:text="의무: -" />
 
-            <TextView
-                android:id="@+id/tv_plan"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#424242"
-                android:layout_marginTop="2dp"
-                android:text="계획: -" />
+                <TextView
+                    android:id="@+id/tv_work"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#212121"
+                    android:layout_marginTop="2dp"
+                    android:text="근무: 0시간" />
 
-            <TextView
-                android:id="@+id/tv_shortage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:layout_marginTop="2dp"
-                android:text="부족: -" />
+                <TextView
+                    android:id="@+id/tv_plan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#424242"
+                    android:layout_marginTop="2dp"
+                    android:text="계획: -" />
 
-            <TextView
-                android:id="@+id/tv_weekday_night"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:id="@+id/tv_shortage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"
+                    android:text="부족: -" />
+            </LinearLayout>
+
+            <!-- 세로 구분선 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#EEEEEE"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp" />
+
+            <!-- 오른쪽: 재택 통계 -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#5C6BC0"
-                android:layout_marginTop="2dp"
-                android:text="평일야간: -" />
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_work_days"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#424242"
+                    android:text="근무일수: -" />
+
+                <TextView
+                    android:id="@+id/tv_remote_days"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#1565C0"
+                    android:layout_marginTop="2dp"
+                    android:text="재택일수: -" />
+
+                <TextView
+                    android:id="@+id/tv_remote_ratio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#1565C0"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"
+                    android:text="재택비율: -" />
+
+                <TextView
+                    android:id="@+id/tv_remote_hours"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#1565C0"
+                    android:layout_marginTop="2dp"
+                    android:text="재택시간: -" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- 구분선 -->
+        <!-- 가로 구분자 바 -->
         <View
-            android:layout_width="1dp"
-            android:layout_height="match_parent"
-            android:background="#EEEEEE"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp" />
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#BDBDBD" />
 
-        <!-- 오른쪽: 재택 통계 -->
+        <!-- 하단: 평일야간  |  휴일주간 / 휴일야간 -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/tv_work_days"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#424242"
-                android:text="근무일수: -" />
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tv_remote_days"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#1565C0"
-                android:layout_marginTop="2dp"
-                android:text="재택일수: -" />
+                <TextView
+                    android:id="@+id/tv_weekday_night"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#5C6BC0"
+                    android:text="평일야간: -" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_remote_ratio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#1565C0"
-                android:textStyle="bold"
-                android:layout_marginTop="2dp"
-                android:text="재택비율: -" />
+            <!-- 세로 구분선 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#EEEEEE"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp" />
 
-            <TextView
-                android:id="@+id/tv_remote_hours"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#1565C0"
-                android:layout_marginTop="2dp"
-                android:text="재택시간: -" />
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tv_holiday_day"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#E65100"
-                android:layout_marginTop="2dp"
-                android:text="휴일주간: -" />
+                <TextView
+                    android:id="@+id/tv_holiday_day"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#E65100"
+                    android:text="휴일주간: -" />
 
-            <TextView
-                android:id="@+id/tv_holiday_night"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="#B71C1C"
-                android:layout_marginTop="2dp"
-                android:text="휴일야간: -" />
+                <TextView
+                    android:id="@+id/tv_holiday_night"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#B71C1C"
+                    android:layout_marginTop="2dp"
+                    android:text="휴일야간: -" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
