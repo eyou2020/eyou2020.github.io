@@ -369,11 +369,13 @@ public class MainActivity extends AppCompatActivity {
         int dutyMinutes = computeDutyMinutes(year, month, yearMonth, holidays,
                 annualDays, halfDays, publicDays);
 
-        // ── 근무: 1일~오늘 실제 기록 합산 (초 단위 정밀도) ─────────
+        // ── 근무: 1일~오늘 실제 기록 합산 (평일 06-22시 구간만, 초 단위 정밀도) ──
         long actualWorkSec = 0;
         for (Map.Entry<String, WorkRecord> e : allRecords.entrySet()) {
             WorkRecord r = e.getValue();
-            int d = Integer.parseInt(e.getKey().split("-")[2]);
+            String dateStr = e.getKey();
+            int d = Integer.parseInt(dateStr.split("-")[2]);
+            boolean isHoW = isHolidayOrWeekendDate(dateStr, holidays);
             boolean include;
             if (year < todayYear || (year == todayYear && month < todayMonth)) {
                 include = true;
@@ -386,15 +388,15 @@ public class MainActivity extends AppCompatActivity {
                 if (r.isInProgress()
                         && d == todayDay
                         && year == todayYear && month == todayMonth) {
-                    actualWorkSec += r.getNetWorkSecondsAtNow(todayH, todayM, todayS);
+                    actualWorkSec += r.getRegularWorkSecondsAtNow(isHoW, todayH, todayM, todayS);
                     hasInProgressToday = true;
                 } else {
-                    actualWorkSec += r.getNetWorkMinutes() * 60L;
+                    actualWorkSec += r.getRegularWorkMinutes(isHoW) * 60L;
                 }
             }
         }
 
-        // ── 계획: 내일~말일 기록된 근무시간 ──────────────────────
+        // ── 계획: 내일~말일 기록된 근무시간 (평일 06-22시 구간만) ──────
         long plannedWorkSec = 0;
         int futureFrom;
         if (year < todayYear || (year == todayYear && month < todayMonth)) {
@@ -407,8 +409,10 @@ public class MainActivity extends AppCompatActivity {
         if (futureFrom != Integer.MAX_VALUE) {
             for (Map.Entry<String, WorkRecord> e : allRecords.entrySet()) {
                 WorkRecord r = e.getValue();
-                int d = Integer.parseInt(e.getKey().split("-")[2]);
-                if (d >= futureFrom) plannedWorkSec += r.getNetWorkMinutes() * 60L;
+                String dateStr = e.getKey();
+                int d = Integer.parseInt(dateStr.split("-")[2]);
+                boolean isHoW = isHolidayOrWeekendDate(dateStr, holidays);
+                if (d >= futureFrom) plannedWorkSec += r.getRegularWorkMinutes(isHoW) * 60L;
             }
         }
 
@@ -452,6 +456,17 @@ public class MainActivity extends AppCompatActivity {
         tvRemoteDays.setText("재택일수: " + remoteDayCount + "일");
         tvRemoteRatio.setText("재택비율: " + remoteRatio + "%");
         tvRemoteHours.setText("재택시간: " + fmtMin(remoteWorkMin));
+    }
+
+    /** 날짜 문자열(YYYY-MM-DD)이 공휴일 또는 주말인지 확인 */
+    private boolean isHolidayOrWeekendDate(String date, Map<Integer, String> holidays) {
+        String[] parts = date.split("-");
+        int day = Integer.parseInt(parts[2]);
+        if (holidays.containsKey(day)) return true;
+        Calendar cal = Calendar.getInstance();
+        cal.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, day);
+        int dow = cal.get(Calendar.DAY_OF_WEEK);
+        return (dow == Calendar.SATURDAY || dow == Calendar.SUNDAY);
     }
 
     /**

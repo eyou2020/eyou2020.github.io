@@ -142,6 +142,28 @@ public class WorkRecord {
         return Math.max(0, rawSec - brk * 60L);
     }
 
+    /** 실 근무시간(분) — 평일 06:00-22:00 구간만 */
+    public int getRegularWorkMinutes(boolean isHolidayOrWeekend) {
+        if (leaveType == LEAVE_ANNUAL || leaveType == LEAVE_PUBLIC) return 0;
+        if (endHour < 0) return 0;
+        return getTimeSegmentsMinutes(isHolidayOrWeekend, endHour, endMinute, getBreakMinutes())[0];
+    }
+
+    /** 퇴근 미입력 시 현재 시각 기준 실 근무시간(초) — 평일 06:00-22:00 구간만 */
+    public long getRegularWorkSecondsAtNow(boolean isHolidayOrWeekend, int nowH, int nowM, int nowS) {
+        int rawMin = Math.max(0, (nowH * 60 + nowM) - (startHour * 60 + startMinute));
+        int brk = customBreakMinutes >= 0 ? customBreakMinutes
+                : (rawMin >= 540 ? 60 : rawMin >= 270 ? 30 : 0);
+        int[] segs = getTimeSegmentsMinutes(isHolidayOrWeekend, nowH, nowM, brk);
+        long regularSec = segs[0] * 60L;
+        // 현재가 평일 주간(6-22시) 구간이면 초 추가 (부드러운 초 카운트)
+        int nowMin = nowH * 60 + nowM;
+        if (!isHolidayOrWeekend && nowMin >= 360 && nowMin < 1320 && segs[0] > 0) {
+            regularSec += nowS;
+        }
+        return regularSec;
+    }
+
     /**
      * 시간 구분별 근무시간(분) — 휴게시간 차감 후
      * [0]=근무(평일 6-22), [1]=평일야간(0-6,22-24), [2]=휴일주간(6-22), [3]=휴일야간(0-6,22-24)
