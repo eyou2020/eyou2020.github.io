@@ -317,6 +317,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
+    public void updateOuting(long id, int startSec, int endSec) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COL_OUT_START, startSec);
+        cv.put(COL_OUT_END, endSec);
+        db.update(TABLE_OUTING, cv, COL_OUT_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
     public void deleteOuting(long id) {
         SQLiteDatabase db = getWritableDatabase();
         db.delete(TABLE_OUTING, COL_OUT_ID + "=?", new String[]{String.valueOf(id)});

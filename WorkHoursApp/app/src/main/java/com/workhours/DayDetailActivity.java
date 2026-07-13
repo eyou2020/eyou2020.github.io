@@ -197,8 +197,19 @@ public class DayDetailActivity extends AppCompatActivity {
         leaveType = record.getLeaveType();
         updateLeaveUI();
 
-        // 외출 기록 로드
+        // 외출 기록 로드 + 진행 중 외출 복원 (앱 백그라운드 복귀 시)
         outingList = new ArrayList<>(dbHelper.getOutings(date));
+        for (OutingRecord or : outingList) {
+            if (or.isOngoing()) {
+                activeOutingId = or.id;
+                outingStartSec = or.startSec;
+                isOutingActive = true;
+                btnOutingStart.setEnabled(false);
+                btnOutingEnd.setEnabled(true);
+                startOutingTimer();
+                break;
+            }
+        }
 
         // 오늘 진행 중 기록이면 타이머 자동 재시작
         // checkInMillis = 현재시각 - (현재시각 - 출근시각) 초 단위로 계산해 화면 열 때마다 리셋 방지
@@ -712,6 +723,8 @@ public class DayDetailActivity extends AppCompatActivity {
             row.setBackgroundColor(Color.parseColor("#E8F5E9"));
         }
 
+        row.setOnLongClickListener(v -> { showOutingEditDialog(r); return true; });
+
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
 
@@ -749,6 +762,112 @@ public class DayDetailActivity extends AppCompatActivity {
         row.addView(btnDel);
 
         llOutingRows.addView(row);
+    }
+
+    private void showOutingEditDialog(OutingRecord r) {
+        float dp = getResources().getDisplayMetrics().density;
+        int padPx = (int)(16 * dp);
+
+        String[] minVals = new String[60];
+        for (int i = 0; i < 60; i++) minVals[i] = String.format("%02d", i);
+        String[] secVals = minVals.clone();
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(padPx, padPx, padPx, 0);
+
+        // 시작 시간
+        TextView tvStartLabel = new TextView(this);
+        tvStartLabel.setText("외출 시작");
+        tvStartLabel.setTextSize(13f);
+        tvStartLabel.setTextColor(Color.parseColor("#616161"));
+        root.addView(tvStartLabel);
+
+        LinearLayout startRow = new LinearLayout(this);
+        startRow.setOrientation(LinearLayout.HORIZONTAL);
+        startRow.setGravity(Gravity.CENTER);
+
+        NumberPicker npSH = new NumberPicker(this);
+        npSH.setMinValue(0); npSH.setMaxValue(23);
+        npSH.setValue(r.startSec / 3600);
+
+        NumberPicker npSM = new NumberPicker(this);
+        npSM.setMinValue(0); npSM.setMaxValue(59);
+        npSM.setDisplayedValues(minVals.clone());
+        npSM.setValue((r.startSec % 3600) / 60);
+
+        NumberPicker npSS = new NumberPicker(this);
+        npSS.setMinValue(0); npSS.setMaxValue(59);
+        npSS.setDisplayedValues(secVals.clone());
+        npSS.setValue(r.startSec % 60);
+
+        TextView c1 = makeColon(dp); TextView c2 = makeColon(dp);
+        startRow.addView(npSH); startRow.addView(c1);
+        startRow.addView(npSM); startRow.addView(c2);
+        startRow.addView(npSS);
+        root.addView(startRow);
+
+        // 구분선
+        View div = new View(this);
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        divLp.topMargin = (int)(8 * dp); divLp.bottomMargin = (int)(8 * dp);
+        div.setLayoutParams(divLp);
+        div.setBackgroundColor(Color.parseColor("#EEEEEE"));
+        root.addView(div);
+
+        // 종료 시간
+        TextView tvEndLabel = new TextView(this);
+        tvEndLabel.setText("외출 종료");
+        tvEndLabel.setTextSize(13f);
+        tvEndLabel.setTextColor(Color.parseColor("#616161"));
+        root.addView(tvEndLabel);
+
+        LinearLayout endRow = new LinearLayout(this);
+        endRow.setOrientation(LinearLayout.HORIZONTAL);
+        endRow.setGravity(Gravity.CENTER);
+
+        NumberPicker npEH = new NumberPicker(this);
+        npEH.setMinValue(0); npEH.setMaxValue(23);
+        npEH.setValue(r.endSec / 3600);
+
+        NumberPicker npEM = new NumberPicker(this);
+        npEM.setMinValue(0); npEM.setMaxValue(59);
+        npEM.setDisplayedValues(minVals.clone());
+        npEM.setValue((r.endSec % 3600) / 60);
+
+        NumberPicker npES = new NumberPicker(this);
+        npES.setMinValue(0); npES.setMaxValue(59);
+        npES.setDisplayedValues(secVals.clone());
+        npES.setValue(r.endSec % 60);
+
+        TextView c3 = makeColon(dp); TextView c4 = makeColon(dp);
+        endRow.addView(npEH); endRow.addView(c3);
+        endRow.addView(npEM); endRow.addView(c4);
+        endRow.addView(npES);
+        root.addView(endRow);
+
+        new AlertDialog.Builder(this)
+                .setTitle("외출 시간 수정")
+                .setView(root)
+                .setPositiveButton("저장", (d, w) -> {
+                    int newStart = npSH.getValue() * 3600 + npSM.getValue() * 60 + npSS.getValue();
+                    int newEnd   = npEH.getValue() * 3600 + npEM.getValue() * 60 + npES.getValue();
+                    dbHelper.updateOuting(r.id, newStart, newEnd);
+                    outingList = new ArrayList<>(dbHelper.getOutings(date));
+                    refreshOutingUI();
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private TextView makeColon(float dp) {
+        TextView tv = new TextView(this);
+        tv.setText(":");
+        tv.setTextSize(18f);
+        tv.setPadding((int)(4 * dp), 0, (int)(4 * dp), 0);
+        tv.setGravity(Gravity.CENTER);
+        return tv;
     }
 
     interface OnTimeSet { void onSet(int hour, int minute); }
