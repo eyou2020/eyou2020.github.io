@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- 그릇 몸체 -->
+    <path
+        android:fillColor="@color/bowl_red"
+        android:pathData="M28,58 a32,16 0,0 0,64 0 l-6,24 a28,10 0,0 1,-52 0 z" />
+
+    <!-- 면 표면 -->
+    <path
+        android:fillColor="@color/bowl_cream"
+        android:pathData="M28,58 a32,16 0,0 0,64 0 a32,11 0,0 1,-64 0 z" />
+
+    <!-- 면발 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="@color/bowl_red"
+        android:strokeWidth="2.4"
+        android:pathData="M42,57 q8,-9 16,0 q8,9 16,0" />
+
+    <!-- 젓가락 -->
+    <path
+        android:fillColor="@color/chopstick_brown"
+        android:pathData="M38,42 l42,-24 l3,5.2 l-42,24 z" />
+    <path
+        android:fillColor="@color/chopstick_brown"
+        android:pathData="M45,46 l45,-21 l2.6,5.4 l-45,21 z" />
+
+    <!-- 돋보기 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#8A8A90"
+        android:strokeWidth="5"
+        android:pathData="M86,86 m-18,0 a18,18 0,1 0,36 0 a18,18 0,1 0,-36 0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#8A8A90"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M99,99 l14,14" />
+</vector>

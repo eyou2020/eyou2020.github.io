@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="green_primary">#2FAE60</color>
+    <color name="green_dark">#1E8A48</color>
+    <color name="green_light">#4FC97C</color>
+    <color name="green_pill">#3DBE6E</color>
+
+    <color name="dark_card">#2B2B2E</color>
+    <color name="dark_card_light">#3A3A3E</color>
+
+    <color name="background">#F2F3F5</color>
+    <color name="surface">#FFFFFF</color>
+
+    <color name="text_primary">#1B1B1D</color>
+    <color name="text_secondary">#7A7A80</color>
+    <color name="text_hint">#B0B0B5</color>
+    <color name="divider">#ECECEE</color>
+
+    <color name="badge_new">#FF4B4B</color>
+
+    <color name="icon_ezwel">#6C4CE0</color>
+    <color name="icon_ecoupon">#FF8A3D</color>
+    <color name="icon_lg">#E8144B</color>
+    <color name="icon_hyundai">#0B2E6B</color>
+    <color name="icon_golf">#2FAE60</color>
+    <color name="icon_group">#2F8FE8</color>
+
+    <color name="food_bg_top">#FFD97A</color>
+    <color name="food_bg_bottom">#FFB74D</color>
+
+    <color name="banner_bg">#F5EBD8</color>
+
+    <color name="nav_active">#2FAE60</color>
+    <color name="nav_inactive">#9A9AA0</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="white_20">#33FFFFFF</color>
+    <color name="white_15">#26FFFFFF</color>
+
+    <color name="heart_red">#FF5A6E</color>
+    <color name="border_gray">#E2E2E6</color>
+    <color name="bowl_red">#D94F3D</color>
+    <color name="bowl_cream">#F5D48A</color>
+    <color name="chopstick_brown">#8C5A2B</color>
+
+    <color name="alert_bg">#FCEAEA</color>
+    <color name="alert_text">#E2574B</color>
+    <color name="card_navy">#122A5E</color>
+    <color name="strong_divider">#D8D8DC</color>
+</resources>

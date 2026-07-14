@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">복지대장</string>
+
+    <string name="meal_point_title">식대포인트</string>
+    <string name="meal_point_value">0</string>
+    <string name="btn_detail">상세보기</string>
+    <string name="btn_qr_pay">코드결제</string>
+    <string name="btn_eat">식사하기</string>
+
+    <string name="daejang_pay_title">대장페이포인트</string>
+    <string name="daejang_pay_value">0</string>
+
+    <string name="food_hall_title">식품관</string>
+    <string name="food_hall_subtitle">식대로 집앞까지 간편 쇼핑!</string>
+
+    <string name="cat_ezwel_mall">복지몰</string>
+    <string name="cat_ezwel_caption">최저가샵</string>
+    <string name="cat_ecoupon">e쿠폰</string>
+    <string name="cat_lg">LG전자</string>
+    <string name="cat_lg_caption">LG전문관</string>
+    <string name="cat_hyundai">현대리바트</string>
+    <string name="cat_hyundai_caption">리바트</string>
+    <string name="cat_golf">골프전문관</string>
+    <string name="cat_group_buy">공동구매</string>
+    <string name="badge_new">NEW</string>
+
+    <string name="banner_title">프리미엄 생크림디저트</string>
+    <string name="banner_subtitle">착한가격, 생크림디저트\n100명에게 쏩니다!</string>
+
+    <string name="today_deal_title">복지대장몰 오늘만이가격!</string>
+
+    <string name="nav_home">홈</string>
+    <string name="nav_business">비즈니스</string>
+    <string name="nav_meal_card">식권대장</string>
+    <string name="nav_welfare_mall">복지대장몰</string>
+    <string name="nav_more">전체보기</string>
+
+    <string name="visit_dining_label">방문식사</string>
+    <string name="restaurant_name">뚜레쥬르(판교파미어스몰점)</string>
+    <string name="restaurant_rating">3.8</string>
+    <string name="restaurant_review_count">(15)</string>
+    <string name="btn_call">전화</string>
+    <string name="btn_map">지도</string>
+    <string name="btn_favorite">즐겨찾기</string>
+    <string name="tab_menu">메뉴</string>
+    <string name="tab_review">리뷰</string>
+    <string name="empty_menu_text">등록된 메뉴가 없습니다.</string>
+    <string name="btn_manual_amount">금액직접입력</string>
+
+    <string name="amount_input_title">금액직접입력</string>
+    <string name="amount_zero">0원</string>
+    <string name="quick_minus_100">-100</string>
+    <string name="quick_minus_1000">-1000</string>
+    <string name="quick_plus_100">+100</string>
+    <string name="quick_plus_1000">+1000</string>
+    <string name="btn_complete">완료</string>
+    <string name="btn_clear">C</string>
+
+    <string name="payment_title">혼자결제</string>
+    <string name="order_amount_label">주문금액</string>
+    <string name="payment_method_title">결제 수단</string>
+    <string name="label_coupon">식권대장 쿠폰</string>
+    <string name="coupon_owned_count">보유 쿠폰 %1$d장</string>
+    <string name="coupon_placeholder">쿠폰 미보유</string>
+    <string name="label_daejang_pay">대장페이</string>
+    <string name="label_daejang_point">대장포인트</string>
+    <string name="point_available_format">사용가능 %1$s</string>
+    <string name="btn_use_all">모두사용</string>
+    <string name="label_easy_pay">간편결제</string>
+    <string name="easy_pay_desc">부족한 금액만큼 간편결제 등록카드로 결제합니다.</string>
+    <string name="remain_amount_format">남은 결제 금액 : %1$s</string>
+    <string name="shortage_format">부족 %1$s</string>
+    <string name="card_name">24RPM</string>
+    <string name="card_detail">신한카드 (4587)</string>
+    <string name="btn_pay">결제하기</string>
+</resources>
