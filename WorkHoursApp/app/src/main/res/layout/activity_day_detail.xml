@@ -11,17 +11,36 @@
         android:orientation="vertical"
         android:padding="14dp">
 
-        <!-- 날짜 제목 -->
-        <TextView
-            android:id="@+id/tv_detail_date"
+        <!-- 날짜 제목 + 닫기 버튼 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="19sp"
-            android:textColor="#1565C0"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="12dp"
-            android:text="2025년 5월 1일" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:id="@+id/tv_detail_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="19sp"
+                android:textColor="#1565C0"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:text="2025년 5월 1일" />
+
+            <Button
+                android:id="@+id/btn_close"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="닫기"
+                android:textSize="13sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_primary_button"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp" />
+        </LinearLayout>
 
         <!-- ── 출퇴근 시간 카드 ── -->
         <LinearLayout

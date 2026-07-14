@@ -50,6 +50,7 @@ public class DayDetailActivity extends AppCompatActivity {
     private Button   btnRemoteWork;
     private Button   btnSave;
     private Button   btnDelete;
+    private Button   btnClose;
 
     private DatabaseHelper dbHelper;
     private String     date;
@@ -134,6 +135,7 @@ public class DayDetailActivity extends AppCompatActivity {
         btnRemoteWork  = findViewById(R.id.btn_remote_work);
         btnSave        = findViewById(R.id.btn_save);
         btnDelete      = findViewById(R.id.btn_delete);
+        btnClose       = findViewById(R.id.btn_close);
 
         llSegContainer    = findViewById(R.id.ll_seg_container);
         llSegWeekdayNight = findViewById(R.id.ll_seg_weekday_night);
@@ -587,6 +589,7 @@ public class DayDetailActivity extends AppCompatActivity {
             finish();
         });
 
+        btnClose.setOnClickListener(v -> finish());
         btnOutingStart.setOnClickListener(v -> startOuting());
         btnOutingEnd.setOnClickListener(v -> stopOuting());
 

@@ -87,6 +87,18 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         setupListeners();
         loadCalendar();
+
+        // 앱 첫 실행 시 오늘 날짜 상세 화면을 자동으로 열기
+        if (savedInstanceState == null) {
+            Calendar today = Calendar.getInstance();
+            String todayDate = String.format("%04d-%02d-%02d",
+                    today.get(Calendar.YEAR),
+                    today.get(Calendar.MONTH) + 1,
+                    today.get(Calendar.DAY_OF_MONTH));
+            Intent intent = new Intent(this, DayDetailActivity.class);
+            intent.putExtra(EXTRA_DATE, todayDate);
+            startActivity(intent);
+        }
     }
 
     @Override
