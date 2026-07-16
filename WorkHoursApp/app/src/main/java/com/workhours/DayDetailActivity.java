@@ -450,16 +450,38 @@ public class DayDetailActivity extends AppCompatActivity {
     private void setupListeners() {
         // 출근 버튼
         btnCheckIn.setOnClickListener(v -> {
-            stopTimer();
             Calendar now = Calendar.getInstance();
             int h = now.get(Calendar.HOUR_OF_DAY);
             int m = now.get(Calendar.MINUTE);
-            record.setStartTime(h, m);
-            record.setEndTime(-1, -1); // 퇴근 미입력 상태
-            record.setCustomBreakMinutes(-1);
-            checkInMillis = System.currentTimeMillis()
-                    - (now.get(Calendar.SECOND) * 1000L);
-            startTimer();
+            long millis = System.currentTimeMillis() - now.get(Calendar.SECOND) * 1000L;
+
+            if (record.getEndHour() >= 0) {
+                // 퇴근 시간이 이미 있으면 유지 여부 확인
+                new AlertDialog.Builder(DayDetailActivity.this)
+                        .setTitle("출근 시간 변경")
+                        .setMessage("퇴근 시간(" + record.getEndTimeString() + ")을 유지하시겠습니까?")
+                        .setPositiveButton("유지", (d, w) -> {
+                            stopTimer();
+                            record.setStartTime(h, m);
+                            updateDisplay();
+                        })
+                        .setNegativeButton("삭제", (d, w) -> {
+                            stopTimer();
+                            record.setStartTime(h, m);
+                            record.setEndTime(-1, -1);
+                            record.setCustomBreakMinutes(-1);
+                            checkInMillis = millis;
+                            startTimer();
+                        })
+                        .show();
+            } else {
+                stopTimer();
+                record.setStartTime(h, m);
+                record.setEndTime(-1, -1);
+                record.setCustomBreakMinutes(-1);
+                checkInMillis = millis;
+                startTimer();
+            }
         });
 
         // 퇴근 버튼
