@@ -307,7 +307,8 @@
         android:horizontalSpacing="1dp"
         android:verticalSpacing="1dp"
         android:background="#BDBDBD"
-        android:padding="1dp" />
+        android:padding="1dp"
+        android:overScrollMode="never" />
 
     <!-- ── 의무 설정 / 근무 설정 버튼 (전체 반영 위) ── -->
     <LinearLayout

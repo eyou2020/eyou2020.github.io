@@ -329,12 +329,17 @@ public class MainActivity extends AppCompatActivity {
         else stopMinuteTimer();
 
         // GridView를 빈틈 없이 채우도록 행 높이를 레이아웃 완료 후 계산
+        // verticalSpacing / padding 을 제외한 실사용 높이로 나눠야 스크롤이 생기지 않음
         gridCalendar.post(new Runnable() {
             @Override public void run() {
                 int rows = calendarAdapter.getCount() / 7;
                 int h    = gridCalendar.getHeight();
                 if (rows > 0 && h > 0) {
-                    calendarAdapter.setRowHeight(h / rows);
+                    int vSpacing  = gridCalendar.getVerticalSpacing();
+                    int padTop    = gridCalendar.getPaddingTop();
+                    int padBottom = gridCalendar.getPaddingBottom();
+                    int available = h - (rows - 1) * vSpacing - padTop - padBottom;
+                    calendarAdapter.setRowHeight(available / rows);
                     calendarAdapter.notifyDataSetChanged();
                 }
             }
