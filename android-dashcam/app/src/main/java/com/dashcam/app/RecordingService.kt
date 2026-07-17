@@ -268,10 +268,9 @@ class RecordingService : LifecycleService() {
     private fun updateOverlayLocation(location: Location) {
         val lat = String.format("%.5f°", location.latitude)
         val lon = String.format("%.5f°", location.longitude)
-        val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toInt() else 0
-
         overlayRecorder?.overlayLocation = "$lat\n$lon"
-        overlayRecorder?.overlaySpeed    = "$speedKmh km/h"
+        overlayRecorder?.overlaySpeed    =
+            if (location.hasSpeed()) "${(location.speed * 3.6).toInt()} KM/H" else "—  KM/H"
 
         fetchAddress(location)
         applyDaytimeColor()

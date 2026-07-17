@@ -774,48 +774,52 @@ class OverlayVideoRecorder(
         bmp.eraseColor(Color.TRANSPARENT)
         val canvas = Canvas(bmp)
 
-        val textSz = h * 0.0325f
         val margin = w * 0.015f
-        val lineH  = textSz * 1.35f
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        fun makePaint(sz: Float) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style    = Paint.Style.FILL
             color    = _overlayTextColor
-            textSize = textSz
+            textSize = sz
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
 
-        fun drawLabeled(text: String, x: Float, y: Float) {
+        val addrPaint  = makePaint(h * 0.048f)   // address — large
+        val coordPaint = makePaint(h * 0.030f)   // GPS coordinates — smaller
+        val timePaint  = makePaint(h * 0.030f)   // date / time
+        val speedPaint = makePaint(h * 0.085f)   // speed — large
+
+        fun drawAt(text: String, x: Float, y: Float, p: Paint) {
             if (text.isBlank()) return
-            canvas.drawText(text, x, y, paint)
+            canvas.drawText(text, x, y, p)
         }
 
-        // Baseline placement via fontMetrics — text never clips outside bitmap
-        val fm = paint.fontMetrics
-
-        // Top-left: address + GPS coordinates (text top at `margin`)
-        var y = margin - fm.top
+        // Top-left: address (large) + GPS coordinates (smaller)
+        var y = margin - addrPaint.fontMetrics.top
         if (_overlayAddress.isNotEmpty()) {
-            wrapText(_overlayAddress, paint, w - margin - margin).forEach { line ->
-                drawLabeled(line, margin, y)
-                y += lineH
+            wrapText(_overlayAddress, addrPaint, w - margin * 2).forEach { line ->
+                drawAt(line, margin, y, addrPaint)
+                y += addrPaint.textSize * 1.3f
             }
+            y += coordPaint.textSize * 0.3f
         }
         _overlayLocation.split("\n").forEach { line ->
-            if (line.isNotBlank()) { drawLabeled(line.trim(), margin, y); y += lineH }
+            if (line.isNotBlank()) {
+                drawAt(line.trim(), margin, y, coordPaint)
+                y += coordPaint.textSize * 1.3f
+            }
         }
 
-        // Top-right: date / time, 2 lines (text top at `margin`)
+        // Top-right: date / time (2 lines, text top at `margin`)
         val now = Date()
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now)
         val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(now)
-        var yRight = margin - fm.top
-        drawLabeled(dateStr, w - paint.measureText(dateStr) - margin, yRight)
-        yRight += lineH
-        drawLabeled(timeStr, w - paint.measureText(timeStr) - margin, yRight)
+        var yRight = margin - timePaint.fontMetrics.top
+        drawAt(dateStr, w - timePaint.measureText(dateStr) - margin, yRight, timePaint)
+        yRight += timePaint.textSize * 1.3f
+        drawAt(timeStr, w - timePaint.measureText(timeStr) - margin, yRight, timePaint)
 
-        // Bottom-left: speed (text bottom at `h - margin`)
-        drawLabeled(_overlaySpeed, margin, h - margin - fm.bottom)
+        // Bottom-left: speed (large, text bottom at `h - margin`)
+        drawAt(_overlaySpeed, margin, h - margin - speedPaint.fontMetrics.bottom, speedPaint)
 
         uploadOverlayBitmap(bmp)
     }

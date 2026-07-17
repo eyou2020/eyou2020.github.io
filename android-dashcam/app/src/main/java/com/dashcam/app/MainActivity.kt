@@ -24,6 +24,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
+import android.os.StatFs
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageButton
@@ -72,6 +73,36 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnDaytime:        ImageButton
     private lateinit var tvRecording:       TextView
     private lateinit var tvRecordingTimer:  TextView
+    private lateinit var tvStorageUsed:     TextView
+    private lateinit var tvStorageFree:     TextView
+
+    // ── Storage display ────────────────────────────────────────────────────────
+    private val storageHandler = Handler(Looper.getMainLooper())
+    private val storageRunnable = object : Runnable {
+        override fun run() {
+            updateStorageDisplay()
+            storageHandler.postDelayed(this, 5000)
+        }
+    }
+
+    private fun updateStorageDisplay() {
+        try {
+            val path = getExternalFilesDir(null) ?: return
+            val stat = StatFs(path.absolutePath)
+            val available = stat.availableBlocksLong * stat.blockSizeLong
+            val total     = stat.blockCountLong      * stat.blockSizeLong
+            val used      = total - available
+            tvStorageUsed.text = "${formatBytes(used)} / ${formatBytes(total)}"
+            tvStorageFree.text = "${formatBytes(available)} 사용 가능한 공간"
+        } catch (_: Exception) {}
+    }
+
+    private fun formatBytes(bytes: Long): String = when {
+        bytes >= 1_000_000_000L -> String.format("%.1f GB", bytes / 1_000_000_000.0)
+        bytes >= 1_000_000L     -> String.format("%.1f MB", bytes / 1_000_000.0)
+        bytes >= 1_000L         -> String.format("%.1f KB", bytes / 1_000.0)
+        else                    -> "$bytes B"
+    }
 
     // ── Segment elapsed timer ──────────────────────────────────────────────────────
     private var segmentStartMs = 0L
@@ -156,6 +187,8 @@ class MainActivity : AppCompatActivity() {
         btnDaytime         = findViewById(R.id.btnDaytime)
         tvRecording        = findViewById(R.id.tvRecording)
         tvRecordingTimer   = findViewById(R.id.tvRecordingTimer)
+        tvStorageUsed      = findViewById(R.id.tvStorageUsed)
+        tvStorageFree      = findViewById(R.id.tvStorageFree)
 
         btnEvent.setOnClickListener { onEventClicked() }
         btnRecord.setOnClickListener { onRecordClicked() }
@@ -197,10 +230,12 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (checkPermissions()) startAndBindService()
+        storageHandler.post(storageRunnable)
     }
 
     override fun onStop() {
         stopSegmentTimer()
+        storageHandler.removeCallbacks(storageRunnable)
         if (serviceBound) {
             recordingService?.setRecordingStateListener(null)
             recordingService?.setSegmentRotatedListener(null)

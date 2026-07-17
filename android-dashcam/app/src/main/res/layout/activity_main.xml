@@ -104,13 +104,12 @@
         android:shadowRadius="4"
         android:visibility="gone" />
 
-    <!-- ── Bottom-right: REC indicator + elapsed timer ── -->
+    <!-- ── Bottom-center: REC indicator + elapsed timer (above button bar) ── -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="20dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="112dp"
         android:orientation="vertical"
         android:gravity="center_horizontal">
 
@@ -120,7 +119,7 @@
             android:layout_height="wrap_content"
             android:text="● REC"
             android:textColor="#FF3B30"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:fontFamily="monospace"
             android:visibility="gone"
@@ -135,10 +134,50 @@
             android:layout_height="wrap_content"
             android:text="00:00"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="22sp"
             android:textStyle="bold"
             android:fontFamily="monospace"
             android:visibility="gone"
+            android:shadowColor="#CC000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
+
+    </LinearLayout>
+
+    <!-- ── Bottom-right: storage capacity ── -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="20dp"
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/tvStorageUsed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:shadowColor="#CC000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
+
+        <TextView
+            android:id="@+id/tvStorageFree"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#CCFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
             android:shadowColor="#CC000000"
             android:shadowDx="1"
             android:shadowDy="1"
