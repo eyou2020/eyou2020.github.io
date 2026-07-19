@@ -30,8 +30,25 @@ class StatsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupYearSummary()
         setupMileageSection()
         setupFuelSection()
+    }
+
+    // ── 올해 누적 요약 카드 ─────────────────────────────────────
+    private fun setupYearSummary() {
+        viewModel.yearSummary.observe(viewLifecycleOwner) { summary ->
+            if (summary == null) {
+                binding.cardYearSummary.visibility = View.GONE
+                return@observe
+            }
+            binding.cardYearSummary.visibility = View.VISIBLE
+            binding.textYearLabel.text = "${summary.year}년 누적"
+            binding.textYearMileageKm.text = "%,d km".format(summary.mileageKm)
+            binding.textYearMileageCount.text = "${summary.mileageCount}건"
+            binding.textYearFuelAmount.text = "%,d 원".format(summary.fuelAmount)
+            binding.textYearFuelCount.text = "${summary.fuelCount}회"
+        }
     }
 
     // ── 주행거리 섹션 ──────────────────────────────────────────
@@ -44,7 +61,6 @@ class StatsFragment : Fragment() {
             )
             binding.dropdownMileageMonth.setAdapter(adapter)
 
-            // 첫 로드 시 가장 최근 달 자동 선택
             if (months.isNotEmpty() && viewModel.selectedMileageMonth.value == null) {
                 val latest = months.first()
                 viewModel.selectedMileageMonth.value = latest
@@ -91,7 +107,6 @@ class StatsFragment : Fragment() {
             )
             binding.dropdownFuelMonth.setAdapter(adapter)
 
-            // 첫 로드 시 가장 최근 달 자동 선택
             if (months.isNotEmpty() && viewModel.selectedFuelMonth.value == null) {
                 val latest = months.first()
                 viewModel.selectedFuelMonth.value = latest
@@ -131,16 +146,11 @@ class StatsFragment : Fragment() {
         }
     }
 
-    // 주유 항목을 카드 안에 동적으로 표시
     private fun renderFuelList(entries: List<FuelEntry>) {
         binding.layoutFuelList.removeAllViews()
-        if (entries.isEmpty()) {
-            binding.layoutFuelList.visibility = View.GONE
-            return
-        }
+        if (entries.isEmpty()) { binding.layoutFuelList.visibility = View.GONE; return }
         binding.layoutFuelList.visibility = View.VISIBLE
 
-        // 구분선
         val divider = View(requireContext()).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
             setBackgroundColor(0x1A000000)
@@ -150,10 +160,8 @@ class StatsFragment : Fragment() {
         entries.forEach { entry ->
             val row = LayoutInflater.from(requireContext())
                 .inflate(R.layout.item_fuel_stat_row, binding.layoutFuelList, false)
-            row.findViewById<TextView>(R.id.textRowDate).text =
-                displaySdf.format(Date(entry.date))
-            row.findViewById<TextView>(R.id.textRowAmount).text =
-                "%,d 원".format(entry.amount)
+            row.findViewById<TextView>(R.id.textRowDate).text = displaySdf.format(Date(entry.date))
+            row.findViewById<TextView>(R.id.textRowAmount).text = "%,d 원".format(entry.amount)
             val litersView = row.findViewById<TextView>(R.id.textRowLiters)
             if (entry.liters > 0f) {
                 litersView.text = "%.2f L".format(entry.liters)
@@ -169,9 +177,7 @@ class StatsFragment : Fragment() {
         return try {
             val parts = yyyyMM.split("-")
             "${parts[0]}년 ${parts[1].trimStart('0')}월"
-        } catch (e: Exception) {
-            yyyyMM
-        }
+        } catch (e: Exception) { yyyyMM }
     }
 
     override fun onDestroyView() {
