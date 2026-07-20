@@ -157,9 +157,10 @@ public class DayDetailActivity extends AppCompatActivity {
         String holidayName = KoreanHolidays.getHolidayName(date);
         if (holidayName != null) {
             tvDate.setText(dateLabel + "  (" + holidayName + ")");
-            tvDate.setTextColor(Color.parseColor("#D32F2F"));
+            tvDate.setTextColor(Color.parseColor("#FFD54F"));
         } else {
             tvDate.setText(dateLabel);
+            tvDate.setTextColor(Color.WHITE);
         }
 
         // 오늘 날짜 여부 판단

@@ -1,9 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root_day_detail"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="#FFFFFF">
+
+    <!-- ── 고정 헤더 (파란색) ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#1565C0"
+        android:padding="4dp">
+
+        <ImageButton
+            android:id="@+id/btn_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_arrow_left"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="닫기"
+            android:padding="4dp"
+            android:tint="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tv_detail_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:text="2025년 5월 1일" />
+
+        <!-- 좌우 균형을 위한 여백 (아이콘과 동일 너비) -->
+        <View
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#FFFFFF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -11,40 +54,6 @@
         android:orientation="vertical"
         android:padding="14dp"
         android:background="#FFFFFF">
-
-        <!-- 날짜 제목 + 뒤로가기 아이콘 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="12dp">
-
-            <ImageButton
-                android:id="@+id/btn_close"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_arrow_left"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="닫기"
-                android:padding="4dp" />
-
-            <TextView
-                android:id="@+id/tv_detail_date"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="19sp"
-                android:textColor="#1565C0"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:text="2025년 5월 1일" />
-
-            <!-- 좌우 균형을 위한 여백 (아이콘과 동일 너비) -->
-            <View
-                android:layout_width="36dp"
-                android:layout_height="36dp" />
-        </LinearLayout>
 
         <!-- ── 출퇴근 시간 카드 ── -->
         <LinearLayout
@@ -548,4 +557,6 @@
         </LinearLayout>
 
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+</LinearLayout>
