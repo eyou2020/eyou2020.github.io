@@ -228,15 +228,6 @@
                     android:textSize="20sp"
                     android:textColor="#616161" />
 
-                <TextView
-                    android:id="@+id/tv_break_hint"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="end"
-                    android:textSize="11sp"
-                    android:textColor="#9E9E9E"
-                    android:text="" />
             </LinearLayout>
 
             <View android:layout_width="match_parent" android:layout_height="1dp"

@@ -38,7 +38,6 @@ public class DayDetailActivity extends AppCompatActivity {
     private TextView tvEndTime;
     private TextView tvRawWork;
     private EditText etBreakMinutes;
-    private TextView tvBreakHint;
     private TextView tvNetWork;
     private Button   btnEditStart;
     private Button   btnEditEnd;
@@ -122,7 +121,6 @@ public class DayDetailActivity extends AppCompatActivity {
         tvEndTime      = findViewById(R.id.tv_end_time);
         tvRawWork      = findViewById(R.id.tv_raw_work);
         etBreakMinutes = findViewById(R.id.et_break_minutes);
-        tvBreakHint    = findViewById(R.id.tv_break_hint);
         tvNetWork      = findViewById(R.id.tv_net_work);
         btnEditStart   = findViewById(R.id.btn_edit_start);
         btnEditEnd     = findViewById(R.id.btn_edit_end);
@@ -302,7 +300,6 @@ public class DayDetailActivity extends AppCompatActivity {
         if (record.isInProgress()) {
             // 퇴근 미입력 상태 표시 (과거 날짜에서 열람 시)
             tvRawWork.setText("총 체류 시간: -");
-            tvBreakHint.setText("자동");
             updatingBreak = true;
             etBreakMinutes.setText("0");
             updatingBreak = false;
@@ -316,7 +313,6 @@ public class DayDetailActivity extends AppCompatActivity {
         int rawMin    = record.getTotalRawMinutes();
         int autoBreak = record.getAutoBreakMinutes();
         tvRawWork.setText("총 체류 시간: " + fmtMin(rawMin));
-        tvBreakHint.setText("");
 
         updatingBreak = true;
         int custom = record.getCustomBreakMinutes();
