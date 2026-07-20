@@ -48,9 +48,9 @@ public class DayDetailActivity extends AppCompatActivity {
     private Button   btnHalfLeave;
     private Button   btnPublicLeave;
     private Button   btnRemoteWork;
-    private Button   btnSave;
-    private Button   btnDelete;
-    private Button   btnClose;
+    private Button       btnSave;
+    private Button       btnDelete;
+    private android.widget.ImageButton btnClose;
 
     private DatabaseHelper dbHelper;
     private String     date;
@@ -135,7 +135,7 @@ public class DayDetailActivity extends AppCompatActivity {
         btnRemoteWork  = findViewById(R.id.btn_remote_work);
         btnSave        = findViewById(R.id.btn_save);
         btnDelete      = findViewById(R.id.btn_delete);
-        btnClose       = findViewById(R.id.btn_close);
+        btnClose       = (android.widget.ImageButton) findViewById(R.id.btn_close);
 
         llSegContainer    = findViewById(R.id.ll_seg_container);
         llSegWeekdayNight = findViewById(R.id.ll_seg_weekday_night);
