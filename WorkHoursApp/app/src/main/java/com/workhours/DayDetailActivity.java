@@ -78,7 +78,6 @@ public class DayDetailActivity extends AppCompatActivity {
     private LinearLayout llSegWeekdayNight;
     private LinearLayout llSegHolidayDay;
     private LinearLayout llSegHolidayNight;
-    private TextView     tvSegRegular;
     private TextView     tvSegWeekdayNight;
     private TextView     tvSegHolidayDay;
     private TextView     tvSegHolidayNight;
@@ -141,7 +140,6 @@ public class DayDetailActivity extends AppCompatActivity {
         llSegWeekdayNight = findViewById(R.id.ll_seg_weekday_night);
         llSegHolidayDay   = findViewById(R.id.ll_seg_holiday_day);
         llSegHolidayNight = findViewById(R.id.ll_seg_holiday_night);
-        tvSegRegular      = findViewById(R.id.tv_seg_regular);
         tvSegWeekdayNight = findViewById(R.id.tv_seg_weekday_night);
         tvSegHolidayDay   = findViewById(R.id.tv_seg_holiday_day);
         tvSegHolidayNight = findViewById(R.id.tv_seg_holiday_night);
@@ -317,7 +315,7 @@ public class DayDetailActivity extends AppCompatActivity {
         int rawMin    = record.getTotalRawMinutes();
         int autoBreak = record.getAutoBreakMinutes();
         tvRawWork.setText("총 체류 시간: " + fmtMin(rawMin));
-        tvBreakHint.setText("미입력 시 자동: " + autoBreak + "분");
+        tvBreakHint.setText("");
 
         updatingBreak = true;
         int custom = record.getCustomBreakMinutes();
@@ -356,7 +354,6 @@ public class DayDetailActivity extends AppCompatActivity {
 
     private void displaySegments(int[] segs) {
         llSegContainer.setVisibility(View.VISIBLE);
-        tvSegRegular.setText(fmtMin(segs[0]));
         llSegWeekdayNight.setVisibility(segs[1] > 0 ? View.VISIBLE : View.GONE);
         if (segs[1] > 0) tvSegWeekdayNight.setText(fmtMin(segs[1]));
         llSegHolidayDay.setVisibility(segs[2] > 0 ? View.VISIBLE : View.GONE);
