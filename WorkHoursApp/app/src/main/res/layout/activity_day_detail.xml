@@ -97,7 +97,7 @@
                     android:text="출근"
                     android:textSize="12sp"
                     android:background="@drawable/bg_checkin_button"
-                    android:textColor="#1B5E20"
+                    android:textColor="#FFFFFF"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:layout_marginEnd="4dp"
@@ -150,7 +150,7 @@
                     android:text="퇴근"
                     android:textSize="12sp"
                     android:background="@drawable/bg_checkout_button"
-                    android:textColor="#7F0000"
+                    android:textColor="#FFFFFF"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:layout_marginEnd="4dp"
@@ -444,7 +444,7 @@
                     android:layout_weight="1"
                     android:text="외출시작"
                     android:textSize="14sp"
-                    android:textColor="#1B5E20"
+                    android:textColor="#FFFFFF"
                     android:background="@drawable/bg_checkin_button"
                     android:layout_marginEnd="4dp" />
 
@@ -455,7 +455,7 @@
                     android:layout_weight="1"
                     android:text="외출종료"
                     android:textSize="14sp"
-                    android:textColor="#7F0000"
+                    android:textColor="#FFFFFF"
                     android:background="@drawable/bg_checkout_button"
                     android:layout_marginStart="4dp"
                     android:enabled="false" />
