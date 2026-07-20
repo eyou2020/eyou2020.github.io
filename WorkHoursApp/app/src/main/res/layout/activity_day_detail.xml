@@ -97,7 +97,7 @@
                     android:text="출근"
                     android:textSize="12sp"
                     android:background="@drawable/bg_checkin_button"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#1B5E20"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:layout_marginEnd="4dp"
@@ -110,7 +110,7 @@
                     android:text="변경"
                     android:textSize="12sp"
                     android:background="@drawable/bg_primary_button"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#424242"
                     android:paddingLeft="14dp"
                     android:paddingRight="14dp" />
             </LinearLayout>
@@ -150,7 +150,7 @@
                     android:text="퇴근"
                     android:textSize="12sp"
                     android:background="@drawable/bg_checkout_button"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#7F0000"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:layout_marginEnd="4dp"
@@ -163,7 +163,7 @@
                     android:text="변경"
                     android:textSize="12sp"
                     android:background="@drawable/bg_primary_button"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#424242"
                     android:paddingLeft="14dp"
                     android:paddingRight="14dp" />
             </LinearLayout>
@@ -354,7 +354,7 @@
                 android:layout_weight="1"
                 android:text="연차"
                 android:textSize="13sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#616161"
                 android:textStyle="bold"
                 android:background="@drawable/bg_leave_inactive"
                 android:layout_marginEnd="3dp" />
@@ -366,7 +366,7 @@
                 android:layout_weight="1"
                 android:text="반차"
                 android:textSize="13sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#616161"
                 android:textStyle="bold"
                 android:background="@drawable/bg_leave_inactive"
                 android:layout_marginStart="3dp"
@@ -379,7 +379,7 @@
                 android:layout_weight="1"
                 android:text="공가"
                 android:textSize="13sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#616161"
                 android:textStyle="bold"
                 android:background="@drawable/bg_leave_inactive"
                 android:layout_marginStart="3dp"
@@ -392,7 +392,7 @@
                 android:layout_weight="1"
                 android:text="재택"
                 android:textSize="13sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#616161"
                 android:textStyle="bold"
                 android:background="@drawable/bg_leave_inactive"
                 android:layout_marginStart="3dp" />
@@ -444,8 +444,8 @@
                     android:layout_weight="1"
                     android:text="외출시작"
                     android:textSize="14sp"
-                    android:textColor="#FFFFFF"
-                    android:background="@drawable/bg_save_button"
+                    android:textColor="#1B5E20"
+                    android:background="@drawable/bg_checkin_button"
                     android:layout_marginEnd="4dp" />
 
                 <Button
@@ -455,7 +455,7 @@
                     android:layout_weight="1"
                     android:text="외출종료"
                     android:textSize="14sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#7F0000"
                     android:background="@drawable/bg_checkout_button"
                     android:layout_marginStart="4dp"
                     android:enabled="false" />

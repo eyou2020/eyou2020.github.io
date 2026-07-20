@@ -278,36 +278,14 @@ public class DayDetailActivity extends AppCompatActivity {
         btnDelete.setVisibility(record.hasRecord() ? View.VISIBLE : View.GONE);
     }
 
-    private static final String[] LEAVE_COLORS = {
-        "#4CAF50", // 연차 (green)
-        "#26A69A", // 반차 (teal)
-        "#2196F3", // 공가 (blue)
-        "#7E57C2"  // 재택 (purple)
-    };
-    private static final String[] LEAVE_COLORS_ACTIVE = {
-        "#388E3C", // 연차 active
-        "#00796B", // 반차 active
-        "#1565C0", // 공가 active
-        "#4527A0"  // 재택 active
-    };
-
     private void resetLeaveButton(Button btn) {
-        int idx = leaveButtonIndex(btn);
-        btn.setBackgroundColor(Color.parseColor(LEAVE_COLORS[idx]));
-        btn.setTextColor(Color.WHITE);
+        btn.setBackgroundResource(R.drawable.bg_leave_inactive);
+        btn.setTextColor(Color.parseColor("#616161"));
     }
 
     private void activateLeaveButton(Button btn, String colorHex) {
-        int idx = leaveButtonIndex(btn);
-        btn.setBackgroundColor(Color.parseColor(LEAVE_COLORS_ACTIVE[idx]));
+        btn.setBackgroundColor(Color.parseColor("#1976D2"));
         btn.setTextColor(Color.WHITE);
-    }
-
-    private int leaveButtonIndex(Button btn) {
-        if (btn == btnAnnualLeave) return 0;
-        if (btn == btnHalfLeave)   return 1;
-        if (btn == btnPublicLeave) return 2;
-        return 3; // btnRemoteWork
     }
 
     private void updateDisplay() {
