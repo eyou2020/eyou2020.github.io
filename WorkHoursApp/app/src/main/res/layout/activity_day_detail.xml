@@ -65,15 +65,6 @@
             android:padding="14dp"
             android:layout_marginBottom="10dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="근무 시간 입력"
-                android:textSize="14sp"
-                android:textColor="#212121"
-                android:textStyle="bold"
-                android:layout_marginBottom="10dp" />
-
             <!-- 출근 -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -189,20 +180,12 @@
             android:layout_marginBottom="16dp">
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="근무시간 계산"
-                android:textSize="14sp"
-                android:textColor="#212121"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
                 android:id="@+id/tv_raw_work"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
+                android:textSize="20sp"
                 android:textColor="#616161"
+                android:gravity="center"
                 android:layout_marginBottom="8dp"
                 android:text="총 체류 시간: -" />
 
@@ -211,23 +194,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:gravity="center"
                 android:layout_marginBottom="8dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="휴게시간"
-                    android:textSize="13sp"
+                    android:textSize="20sp"
                     android:textColor="#E65100" />
 
                 <EditText
                     android:id="@+id/et_break_minutes"
-                    android:layout_width="68dp"
+                    android:layout_width="72dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="8dp"
+                    android:layout_marginLeft="10dp"
                     android:inputType="number"
-                    android:textSize="16sp"
+                    android:textSize="20sp"
                     android:textColor="#E65100"
                     android:textStyle="bold"
                     android:gravity="center"
@@ -240,9 +223,9 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
+                    android:layout_marginLeft="6dp"
                     android:text="분"
-                    android:textSize="13sp"
+                    android:textSize="20sp"
                     android:textColor="#616161" />
 
                 <TextView
@@ -253,7 +236,7 @@
                     android:gravity="end"
                     android:textSize="11sp"
                     android:textColor="#9E9E9E"
-                    android:text="자동: 60분" />
+                    android:text="" />
             </LinearLayout>
 
             <View android:layout_width="match_parent" android:layout_height="1dp"
@@ -456,15 +439,6 @@
             android:background="#FFFFFF"
             android:padding="14dp"
             android:layout_marginTop="12dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="외출 기록"
-                android:textSize="14sp"
-                android:textColor="#212121"
-                android:textStyle="bold"
-                android:layout_marginBottom="10dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
