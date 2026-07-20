@@ -204,7 +204,13 @@ public class CalendarAdapter extends BaseAdapter {
             tvDay.setTextColor(Color.parseColor("#0D47A1"));
         } else if (dayNum == today) {
             convertView.setBackgroundColor(Color.parseColor("#FFF9C4"));
-            tvDay.setTextColor(Color.parseColor("#E65100"));
+            if (col == 0 || isHolidayDay) {
+                tvDay.setTextColor(Color.parseColor("#D32F2F"));
+            } else if (col == 6) {
+                tvDay.setTextColor(Color.parseColor("#1565C0"));
+            } else {
+                tvDay.setTextColor(Color.parseColor("#212121"));
+            }
         } else if (record != null && leaveType == WorkRecord.LEAVE_ANNUAL) {
             convertView.setBackgroundColor(Color.parseColor("#FFEBEE"));
             tvDay.setTextColor(Color.parseColor("#C62828"));
