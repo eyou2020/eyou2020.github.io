@@ -713,10 +713,10 @@ public class DayDetailActivity extends AppCompatActivity {
 
     private void updateOutingToggleButton() {
         if (isOutingActive) {
-            btnOutingToggle.setText("외출종료");
+            btnOutingToggle.setText("외출 종료");
             btnOutingToggle.setBackgroundResource(R.drawable.bg_checkout_button);
         } else {
-            btnOutingToggle.setText("외출시작");
+            btnOutingToggle.setText("외출 시작");
             btnOutingToggle.setBackgroundResource(R.drawable.bg_checkin_button);
         }
     }
