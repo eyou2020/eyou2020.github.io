@@ -615,7 +615,7 @@ public class DayDetailActivity extends AppCompatActivity {
         });
 
         // 스와이프로 날짜 이동
-        ScrollView scrollView = findViewById(R.id.root_day_detail);
+        ScrollView scrollView = findViewById(R.id.scroll_day_detail);
         GestureDetector gestureDetector = new GestureDetector(this,
                 new GestureDetector.SimpleOnGestureListener() {
                     private static final int SWIPE_THRESHOLD  = 100;
