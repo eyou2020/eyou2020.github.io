@@ -180,6 +180,10 @@
             android:padding="14dp"
             android:layout_marginBottom="16dp">
 
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginBottom="8dp" />
+
             <TextView
                 android:id="@+id/tv_raw_work"
                 android:layout_width="match_parent"
@@ -422,6 +426,12 @@
             android:background="@drawable/bg_delete_button"
             android:visibility="gone" />
 
+        <!-- ── 저장/외출 구분자 ── -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#E0E0E0"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp" />
+
         <!-- ── 외출 기록 ── -->
         <LinearLayout
             android:id="@+id/ll_outing_card"
@@ -429,13 +439,14 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="#FFFFFF"
-            android:padding="14dp"
-            android:layout_marginTop="12dp">
+            android:padding="14dp">
 
             <Button
                 android:id="@+id/btn_outing_toggle"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
+                android:layout_marginLeft="-14dp"
+                android:layout_marginRight="-14dp"
                 android:text="외출 시작"
                 android:textSize="16sp"
                 android:textColor="#FFFFFF"
