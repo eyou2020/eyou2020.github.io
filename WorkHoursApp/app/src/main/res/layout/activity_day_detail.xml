@@ -431,35 +431,15 @@
             android:padding="14dp"
             android:layout_marginTop="12dp">
 
-            <LinearLayout
+            <Button
+                android:id="@+id/btn_outing_toggle"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
-
-                <Button
-                    android:id="@+id/btn_outing_start"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="외출시작"
-                    android:textSize="14sp"
-                    android:textColor="#FFFFFF"
-                    android:background="@drawable/bg_checkin_button"
-                    android:layout_marginEnd="4dp" />
-
-                <Button
-                    android:id="@+id/btn_outing_end"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="외출종료"
-                    android:textSize="14sp"
-                    android:textColor="#FFFFFF"
-                    android:background="@drawable/bg_checkout_button"
-                    android:layout_marginStart="4dp"
-                    android:enabled="false" />
-            </LinearLayout>
+                android:layout_height="48dp"
+                android:text="외출시작"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_checkin_button"
+                android:layout_marginBottom="8dp" />
 
             <TextView
                 android:id="@+id/tv_outing_elapsed"

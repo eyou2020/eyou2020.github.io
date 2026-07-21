@@ -2,6 +2,7 @@ package com.workhours;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -9,12 +10,15 @@ import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.TypedValue;
+import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,9 +27,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class DayDetailActivity extends AppCompatActivity {
 
@@ -80,8 +87,7 @@ public class DayDetailActivity extends AppCompatActivity {
     private TextView     tvSegWeekdayNight;
     private TextView     tvSegHolidayDay;
     private TextView     tvSegHolidayNight;
-    private Button       btnOutingStart;
-    private Button       btnOutingEnd;
+    private Button       btnOutingToggle;
     private TextView     tvOutingElapsed;
     private TextView     tvOutingTotal;
     private LinearLayout llOutingRows;
@@ -141,8 +147,7 @@ public class DayDetailActivity extends AppCompatActivity {
         tvSegWeekdayNight = findViewById(R.id.tv_seg_weekday_night);
         tvSegHolidayDay   = findViewById(R.id.tv_seg_holiday_day);
         tvSegHolidayNight = findViewById(R.id.tv_seg_holiday_night);
-        btnOutingStart    = findViewById(R.id.btn_outing_start);
-        btnOutingEnd      = findViewById(R.id.btn_outing_end);
+        btnOutingToggle   = findViewById(R.id.btn_outing_toggle);
         tvOutingElapsed   = findViewById(R.id.tv_outing_elapsed);
         tvOutingTotal     = findViewById(R.id.tv_outing_total);
         llOutingRows      = findViewById(R.id.ll_outing_rows);
@@ -203,8 +208,7 @@ public class DayDetailActivity extends AppCompatActivity {
                 activeOutingId = or.id;
                 outingStartSec = or.startSec;
                 isOutingActive = true;
-                btnOutingStart.setEnabled(false);
-                btnOutingEnd.setEnabled(true);
+                updateOutingToggleButton();
                 startOutingTimer();
                 break;
             }
@@ -606,8 +610,35 @@ public class DayDetailActivity extends AppCompatActivity {
         });
 
         btnClose.setOnClickListener(v -> finish());
-        btnOutingStart.setOnClickListener(v -> startOuting());
-        btnOutingEnd.setOnClickListener(v -> stopOuting());
+        btnOutingToggle.setOnClickListener(v -> {
+            if (isOutingActive) stopOuting(); else startOuting();
+        });
+
+        // 스와이프로 날짜 이동
+        ScrollView scrollView = findViewById(R.id.root_day_detail);
+        GestureDetector gestureDetector = new GestureDetector(this,
+                new GestureDetector.SimpleOnGestureListener() {
+                    private static final int SWIPE_THRESHOLD  = 100;
+                    private static final int SWIPE_VELOCITY   = 100;
+                    @Override
+                    public boolean onFling(MotionEvent e1, MotionEvent e2,
+                                           float vX, float vY) {
+                        if (e1 == null || e2 == null) return false;
+                        float dX = e2.getX() - e1.getX();
+                        float dY = e2.getY() - e1.getY();
+                        if (Math.abs(dX) > Math.abs(dY)
+                                && Math.abs(dX) > SWIPE_THRESHOLD
+                                && Math.abs(vX) > SWIPE_VELOCITY) {
+                            navigateDay(dX < 0 ? 1 : -1);
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+        scrollView.setOnTouchListener((v, event) -> {
+            gestureDetector.onTouchEvent(event);
+            return false; // ScrollView 기본 스크롤 허용
+        });
 
         btnDelete.setOnClickListener(v -> {
             new AlertDialog.Builder(DayDetailActivity.this)
@@ -661,8 +692,7 @@ public class DayDetailActivity extends AppCompatActivity {
         activeOutingId = dbHelper.insertOuting(date, startSec);
         outingStartSec = startSec;
         isOutingActive = true;
-        btnOutingStart.setEnabled(false);
-        btnOutingEnd.setEnabled(true);
+        updateOutingToggleButton();
         startOutingTimer();
     }
 
@@ -676,10 +706,36 @@ public class DayDetailActivity extends AppCompatActivity {
         isOutingActive = false;
         activeOutingId = -1;
         tvOutingElapsed.setText("경과: --:--:--");
-        btnOutingStart.setEnabled(true);
-        btnOutingEnd.setEnabled(false);
+        updateOutingToggleButton();
         outingList = new ArrayList<>(dbHelper.getOutings(date));
         refreshOutingUI();
+    }
+
+    private void updateOutingToggleButton() {
+        if (isOutingActive) {
+            btnOutingToggle.setText("외출종료");
+            btnOutingToggle.setBackgroundResource(R.drawable.bg_checkout_button);
+        } else {
+            btnOutingToggle.setText("외출시작");
+            btnOutingToggle.setBackgroundResource(R.drawable.bg_checkin_button);
+        }
+    }
+
+    private void navigateDay(int delta) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date d = sdf.parse(date);
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(d);
+            cal.add(Calendar.DAY_OF_MONTH, delta);
+            String newDate = sdf.format(cal.getTime());
+            Intent intent = new Intent(this, DayDetailActivity.class);
+            intent.putExtra(MainActivity.EXTRA_DATE, newDate);
+            startActivity(intent);
+            finish();
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     private void startOutingTimer() {
