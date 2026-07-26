@@ -733,6 +733,11 @@ public class DayDetailActivity extends AppCompatActivity {
             intent.putExtra(MainActivity.EXTRA_DATE, newDate);
             startActivity(intent);
             finish();
+            if (delta > 0) {
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            } else {
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+            }
         } catch (Exception e) {
             // ignore
         }
