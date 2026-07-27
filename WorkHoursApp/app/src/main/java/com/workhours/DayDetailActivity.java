@@ -179,9 +179,6 @@ public class DayDetailActivity extends AppCompatActivity {
         isToday = date.equals(today);
 
         // 공휴일/주말 여부
-        String[] dp = date.split("-");
-        Calendar dateCal = Calendar.getInstance();
-        dateCal.set(Integer.parseInt(dp[0]), Integer.parseInt(dp[1]) - 1, Integer.parseInt(dp[2]));
         int dateDow = dateCal.get(Calendar.DAY_OF_WEEK);
         boolean isWeekend = (dateDow == Calendar.SATURDAY || dateDow == Calendar.SUNDAY);
         boolean isHoliday = KoreanHolidays.getHolidayName(date) != null;
