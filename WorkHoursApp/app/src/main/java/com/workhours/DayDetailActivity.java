@@ -190,12 +190,12 @@ public class DayDetailActivity extends AppCompatActivity {
         record = dbHelper.getWorkRecord(date);
         if (record == null) {
             record = new WorkRecord(date);
-            int dow = WorkSettings.dayOfWeekFromDate(date);
+            int dowIdx = WorkSettings.dayOfWeekFromDate(date);
             record.applyDefaults(
-                    WorkSettings.getStartHour(this, dow),
-                    WorkSettings.getStartMinute(this, dow),
-                    WorkSettings.getEndHour(this, dow),
-                    WorkSettings.getEndMinute(this, dow)
+                    WorkSettings.getStartHour(this, dowIdx),
+                    WorkSettings.getStartMinute(this, dowIdx),
+                    WorkSettings.getEndHour(this, dowIdx),
+                    WorkSettings.getEndMinute(this, dowIdx)
             );
         }
 
