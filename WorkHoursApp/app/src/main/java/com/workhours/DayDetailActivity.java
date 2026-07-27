@@ -155,7 +155,11 @@ public class DayDetailActivity extends AppCompatActivity {
 
     private void loadRecord() {
         String[] p = date.split("-");
-        String dateLabel = p[0] + "년 " + Integer.parseInt(p[1]) + "월 " + Integer.parseInt(p[2]) + "일";
+        String[] dayOfWeekNames = {"일", "월", "화", "수", "목", "금", "토"};
+        Calendar dateCal = Calendar.getInstance();
+        dateCal.set(Integer.parseInt(p[0]), Integer.parseInt(p[1]) - 1, Integer.parseInt(p[2]));
+        String dow = dayOfWeekNames[dateCal.get(Calendar.DAY_OF_WEEK) - 1];
+        String dateLabel = p[0] + "년 " + Integer.parseInt(p[1]) + "월 " + Integer.parseInt(p[2]) + "일 (" + dow + ")";
 
         String holidayName = KoreanHolidays.getHolidayName(date);
         if (holidayName != null) {
