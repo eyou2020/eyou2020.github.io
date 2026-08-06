@@ -346,30 +346,37 @@
             android:layout_margin="4dp" />
     </LinearLayout>
 
-    <!-- ── 전체 반영 버튼 ── -->
-    <TextView
-        android:id="@+id/btn_bulk_apply"
+    <!-- ── 전체 반영 / 전체 초기화 버튼 (나란히) ── -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:gravity="center"
-        android:text="전체 반영"
-        android:textSize="15sp"
-        android:textColor="#FFFFFF"
-        android:background="#1565C0"
-        android:clickable="true"
-        android:focusable="true" />
+        android:layout_height="44dp"
+        android:orientation="horizontal">
 
-    <!-- ── 전체 초기화 버튼 ── -->
-    <TextView
-        android:id="@+id/btn_reset"
-        android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:gravity="center"
-        android:text="전체 초기화"
-        android:textSize="15sp"
-        android:textColor="#FFFFFF"
-        android:background="#C62828"
-        android:clickable="true"
-        android:focusable="true" />
+        <TextView
+            android:id="@+id/btn_bulk_apply"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="전체 반영"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:background="#1565C0"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btn_reset"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="전체 초기화"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:background="#C62828"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
 
 </LinearLayout>
