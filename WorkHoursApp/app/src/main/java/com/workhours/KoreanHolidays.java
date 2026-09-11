@@ -1,8 +1,14 @@
 package com.workhours;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 한국 공휴일 데이터 (2020~2030)
@@ -141,6 +147,75 @@ public class KoreanHolidays {
         }
     }
 
+    // ─── 커스텀 추가/삭제 (SharedPreferences) ───────────────
+
+    private static final String PREF_NAME        = "custom_holidays";
+    private static final String PREF_KEY_ADDED   = "added";
+    private static final String PREF_KEY_DELETED = "deleted";
+    private static final String SEP = "|";
+
+    /** 커스텀 추가 휴일: "날짜=이름" 목록 */
+    private static Map<String, String> customAdded = new HashMap<>();
+    /** 커스텀 삭제된 기본 휴일 날짜 목록 */
+    private static java.util.Set<String> customDeleted = new java.util.HashSet<>();
+
+    public static void loadCustom(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        customAdded.clear();
+        customDeleted.clear();
+        String added = sp.getString(PREF_KEY_ADDED, "");
+        if (!added.isEmpty()) {
+            for (String entry : added.split("\\" + SEP)) {
+                int eq = entry.indexOf('=');
+                if (eq > 0) customAdded.put(entry.substring(0, eq), entry.substring(eq + 1));
+            }
+        }
+        String deleted = sp.getString(PREF_KEY_DELETED, "");
+        if (!deleted.isEmpty()) {
+            for (String d : deleted.split("\\" + SEP)) {
+                if (!d.isEmpty()) customDeleted.add(d);
+            }
+        }
+    }
+
+    public static void addCustomHoliday(Context ctx, String date, String name) {
+        customAdded.put(date, name);
+        customDeleted.remove(date);
+        saveCustom(ctx);
+    }
+
+    /** 기본 공휴일 숨기기 또는 커스텀 항목 삭제 */
+    public static void deleteHoliday(Context ctx, String date) {
+        if (customAdded.containsKey(date)) {
+            customAdded.remove(date);
+        } else {
+            customDeleted.add(date);
+        }
+        saveCustom(ctx);
+    }
+
+    private static void saveCustom(Context ctx) {
+        StringBuilder added = new StringBuilder();
+        for (Map.Entry<String, String> e : customAdded.entrySet()) {
+            if (added.length() > 0) added.append(SEP);
+            added.append(e.getKey()).append('=').append(e.getValue());
+        }
+        StringBuilder deleted = new StringBuilder();
+        for (String d : customDeleted) {
+            if (deleted.length() > 0) deleted.append(SEP);
+            deleted.append(d);
+        }
+        ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .putString(PREF_KEY_ADDED, added.toString())
+                .putString(PREF_KEY_DELETED, deleted.toString())
+                .apply();
+    }
+
+    /** 커스텀 추가된 항목인지 여부 */
+    public static boolean isCustomAdded(String date) {
+        return customAdded.containsKey(date);
+    }
+
     // ─── 공개 API ────────────────────────────────────────────
 
     /**
@@ -148,7 +223,33 @@ public class KoreanHolidays {
      * 공휴일이 아니면 null.
      */
     public static String getHolidayName(String date) {
-        return MAP.get(date);
+        if (customDeleted.contains(date)) return null;
+        String name = MAP.get(date);
+        String custom = customAdded.get(date);
+        if (name != null && custom != null) return name + "·" + custom;
+        if (custom != null) return custom;
+        return name;
+    }
+
+    /**
+     * 해당 연도의 전체 공휴일 Map 반환 (key: "yyyy-MM-dd", value: 이름), 날짜순 정렬
+     */
+    public static Map<String, String> getHolidaysForYear(int year) {
+        Map<String, String> result = new TreeMap<>();
+        String prefix = String.format("%04d-", year);
+        for (Map.Entry<String, String> entry : MAP.entrySet()) {
+            String k = entry.getKey();
+            if (k.startsWith(prefix) && !customDeleted.contains(k)) {
+                result.put(k, entry.getValue());
+            }
+        }
+        for (Map.Entry<String, String> entry : customAdded.entrySet()) {
+            String k = entry.getKey();
+            if (k.startsWith(prefix)) {
+                result.merge(k, entry.getValue(), (a, b) -> a + "·" + b);
+            }
+        }
+        return result;
     }
 
     /**
@@ -158,9 +259,17 @@ public class KoreanHolidays {
         Map<Integer, String> result = new HashMap<>();
         String prefix = String.format("%04d-%02d-", year, month);
         for (Map.Entry<String, String> entry : MAP.entrySet()) {
-            if (entry.getKey().startsWith(prefix)) {
-                int day = Integer.parseInt(entry.getKey().substring(8));
+            String k = entry.getKey();
+            if (k.startsWith(prefix) && !customDeleted.contains(k)) {
+                int day = Integer.parseInt(k.substring(8));
                 result.put(day, entry.getValue());
+            }
+        }
+        for (Map.Entry<String, String> entry : customAdded.entrySet()) {
+            String k = entry.getKey();
+            if (k.startsWith(prefix)) {
+                int day = Integer.parseInt(k.substring(8));
+                result.merge(day, entry.getValue(), (a, b) -> a + "·" + b);
             }
         }
         return result;

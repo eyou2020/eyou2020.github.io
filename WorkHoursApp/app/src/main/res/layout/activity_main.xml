@@ -85,7 +85,23 @@
             android:background="#FFFFFF"
             android:clickable="true"
             android:focusable="true"
-            android:layout_marginStart="4dp" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp" />
+
+        <TextView
+            android:id="@+id/btn_holiday_manager"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="휴일 관리"
+            android:textColor="#C62828"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="#FFFFFF"
+            android:clickable="true"
+            android:focusable="true" />
     </LinearLayout>
 
     <!-- ── 요약 카드 ── -->

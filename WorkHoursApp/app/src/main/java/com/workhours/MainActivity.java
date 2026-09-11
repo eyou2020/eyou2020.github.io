@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView btnWorkSettings;
     private TextView btnVacationSettings;
     private TextView btnVacationQuery;
+    private TextView btnHolidayManager;
 
     private TextView    tvMonthYear;
     private GridView    gridCalendar;
@@ -82,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
                     v.setPadding(0, insets.top, 0, insets.bottom);
                     return WindowInsetsCompat.CONSUMED;
                 });
+        KoreanHolidays.loadCustom(this);
         dbHelper        = new DatabaseHelper(this);
         currentCalendar = Calendar.getInstance();
         initViews();
@@ -104,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        KoreanHolidays.loadCustom(this);
         loadCalendar();
     }
 
@@ -158,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
         btnWorkSettings     = findViewById(R.id.btn_work_settings);
         btnVacationSettings = findViewById(R.id.btn_vacation_settings);
         btnVacationQuery    = findViewById(R.id.btn_vacation_query);
+        btnHolidayManager   = findViewById(R.id.btn_holiday_manager);
         gridCalendar        = findViewById(R.id.grid_calendar);
         btnPrevMonth        = findViewById(R.id.btn_prev_month);
         btnNextMonth        = findViewById(R.id.btn_next_month);
@@ -192,6 +196,11 @@ public class MainActivity extends AppCompatActivity {
         btnVacationQuery.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, VacationQueryActivity.class));
+            }
+        });
+        btnHolidayManager.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, HolidayManagerActivity.class));
             }
         });
         btnBulkApply.setOnClickListener(new View.OnClickListener() {
