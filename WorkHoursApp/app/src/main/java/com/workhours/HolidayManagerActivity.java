@@ -16,6 +16,9 @@ import android.widget.Toast;
 import android.widget.EditText;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -33,6 +36,14 @@ public class HolidayManagerActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_holiday_manager);
+
+        // 하단 내비게이션 바 가림 방지
+        ViewCompat.setOnApplyWindowInsetsListener(
+                findViewById(R.id.root_holiday_manager), (v, insets) -> {
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    v.setPadding(0, bars.top, 0, bars.bottom);
+                    return WindowInsetsCompat.CONSUMED;
+                });
 
         KoreanHolidays.loadCustom(this);
 
@@ -151,21 +162,18 @@ public class HolidayManagerActivity extends AppCompatActivity {
             if (isCustom) {
                 tvDate.setTextColor(Color.parseColor("#1565C0"));
                 tvName.setTextColor(Color.parseColor("#1565C0"));
-                btnDel.setText("삭제");
-                btnDel.setTextColor(Color.parseColor("#C62828"));
             } else {
                 tvDate.setTextColor(Color.parseColor("#424242"));
                 tvName.setTextColor(Color.parseColor("#212121"));
-                btnDel.setText("숨김");
-                btnDel.setTextColor(Color.parseColor("#9E9E9E"));
             }
+            btnDel.setText("삭제");
+            btnDel.setTextColor(Color.parseColor("#C62828"));
 
             btnDel.setOnClickListener(v -> {
-                String action = isCustom ? "삭제" : "숨김";
                 new AlertDialog.Builder(HolidayManagerActivity.this)
-                        .setTitle(name + " " + action)
-                        .setMessage(dateLabel + "\n이 항목을 " + action + "하시겠습니까?")
-                        .setPositiveButton(action, (dlg, which) -> {
+                        .setTitle(name + " 삭제")
+                        .setMessage(dateLabel + "\n이 휴일을 삭제하시겠습니까?")
+                        .setPositiveButton("삭제", (dlg, which) -> {
                             KoreanHolidays.deleteHoliday(HolidayManagerActivity.this, date);
                             refresh();
                         })
