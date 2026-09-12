@@ -185,10 +185,12 @@ public class WorkRecord {
         int netDay = Math.max(0, dayTime - breakMin);
         int remainBrk = Math.max(0, breakMin - dayTime);
         int netNight  = Math.max(0, nightTime - remainBrk);
+        // 평일야간은 22-24시 구간만 (0-6시 새벽 제외)
+        int netLateNight = Math.max(0, lateNight - remainBrk);
 
         return isHolidayOrWeekend
                 ? new int[]{0, 0, netDay, netNight}
-                : new int[]{netDay, netNight, 0, 0};
+                : new int[]{netDay, netLateNight, 0, 0};
     }
 
     public String getStartTimeString() {

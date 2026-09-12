@@ -574,8 +574,8 @@ public class DayDetailActivity extends AppCompatActivity {
                     : Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
             int initM = record.getEndMinute() >= 0 ? record.getEndMinute()
                     : Calendar.getInstance().get(Calendar.MINUTE);
-            showTimePicker("퇴근 시간", initH, initM,
-                    (h, m) -> { record.setEndTime(h, m); updateDisplay(); });
+            showTimePicker("퇴근 시간", initH, initM, 24,
+                    (h, m) -> { record.setEndTime(h, h == 24 ? 0 : m); updateDisplay(); });
         });
 
         btnSave.setOnClickListener(v -> {
@@ -658,11 +658,15 @@ public class DayDetailActivity extends AppCompatActivity {
     }
 
     private void showTimePicker(String title, int initH, int initM, final OnTimeSet cb) {
+        showTimePicker(title, initH, initM, 23, cb);
+    }
+
+    private void showTimePicker(String title, int initH, int initM, int maxHour, final OnTimeSet cb) {
         View view = getLayoutInflater().inflate(R.layout.dialog_time_picker, null);
         final NumberPicker npH = view.findViewById(R.id.np_hour);
         final NumberPicker npM = view.findViewById(R.id.np_minute);
 
-        npH.setMinValue(0); npH.setMaxValue(23); npH.setValue(Math.max(0, initH));
+        npH.setMinValue(0); npH.setMaxValue(maxHour); npH.setValue(Math.max(0, Math.min(initH, maxHour)));
 
         String[] minVals = new String[60];
         for (int i = 0; i < 60; i++) minVals[i] = String.format("%02d", i);
