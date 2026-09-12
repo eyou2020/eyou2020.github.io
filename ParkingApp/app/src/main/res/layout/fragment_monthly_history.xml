@@ -95,21 +95,6 @@
             android:text="토" android:textSize="12sp" android:textColor="#2196F3" android:textStyle="bold"/>
     </LinearLayout>
 
-    <!-- 전체 삭제 버튼 -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_delete_all"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="4dp"
-        android:layout_gravity="end"
-        android:text="전체 삭제"
-        android:textSize="12sp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        app:backgroundTint="@color/orange"
-        style="@style/Widget.Material3.Button" />
-
     <!-- 달력 그리드 -->
     <GridView
         android:id="@+id/grid_calendar"
@@ -167,5 +152,17 @@
                 android:visibility="gone" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <!-- 전체 삭제 버튼 (하단바 바로 위) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_delete_all"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="전체 삭제"
+        android:textSize="14sp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        app:backgroundTint="@color/orange"
+        style="@style/Widget.Material3.Button" />
 
 </LinearLayout>
