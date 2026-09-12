@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRemoteDays;
     private TextView tvRemoteRatio;
     private TextView tvRemoteHours;
+    private TextView tvRemoteTimeRatio;
     private TextView tvWeekdayNight;
     private TextView tvHolidayDay;
     private TextView tvHolidayNight;
@@ -154,6 +155,7 @@ public class MainActivity extends AppCompatActivity {
         tvRemoteDays        = findViewById(R.id.tv_remote_days);
         tvRemoteRatio       = findViewById(R.id.tv_remote_ratio);
         tvRemoteHours       = findViewById(R.id.tv_remote_hours);
+        tvRemoteTimeRatio   = findViewById(R.id.tv_remote_time_ratio);
         tvWeekdayNight      = findViewById(R.id.tv_weekday_night);
         tvHolidayDay        = findViewById(R.id.tv_holiday_day);
         tvHolidayNight      = findViewById(R.id.tv_holiday_night);
@@ -514,6 +516,14 @@ public class MainActivity extends AppCompatActivity {
         tvRemoteDays.setText("재택일수: " + remoteDayCount + "일");
         tvRemoteRatio.setText("재택비율: " + remoteRatio + "%");
         tvRemoteHours.setText("재택시간: " + fmtMin(remoteWorkMin));
+
+        // 재택시간비율 = 재택시간(분) / 의무시간(분) * 100, 소수점 둘째자리 반올림
+        if (dutyMinutes > 0) {
+            float timeRatio = Math.round(remoteWorkMin * 10000f / dutyMinutes) / 100f;
+            tvRemoteTimeRatio.setText(String.format("재택시간비율: %.2f%%", timeRatio));
+        } else {
+            tvRemoteTimeRatio.setText("재택시간비율: -");
+        }
     }
 
     /** 날짜 문자열(YYYY-MM-DD)이 공휴일 또는 주말인지 확인 */

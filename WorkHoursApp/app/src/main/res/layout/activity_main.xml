@@ -213,6 +213,16 @@
                     android:textColor="#1565C0"
                     android:layout_marginTop="2dp"
                     android:text="재택시간: -" />
+
+                <TextView
+                    android:id="@+id/tv_remote_time_ratio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#1565C0"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"
+                    android:text="재택시간비율: -" />
             </LinearLayout>
         </LinearLayout>
 
