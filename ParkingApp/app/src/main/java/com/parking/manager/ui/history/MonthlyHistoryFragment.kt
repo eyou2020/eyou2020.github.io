@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.parking.manager.ParkingViewModel
 import com.parking.manager.R
 import com.parking.manager.data.DailySummary
@@ -54,6 +55,8 @@ class MonthlyHistoryFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = dayAdapter
         }
+
+        binding.btnDeleteAll.setOnClickListener { showDeleteAllConfirm() }
 
         binding.btnPrevMonth.setOnClickListener {
             currentCalendar.add(Calendar.MONTH, -1)
@@ -111,6 +114,20 @@ class MonthlyHistoryFragment : Fragment() {
             binding.tvDetailEmpty.visibility = if (records.isEmpty()) View.VISIBLE else View.GONE
             binding.recyclerDayHistory.visibility = if (records.isEmpty()) View.GONE else View.VISIBLE
         }
+    }
+
+    private fun showDeleteAllConfirm() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("전체 이력 삭제")
+            .setMessage("모든 주차 이력을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")
+            .setPositiveButton("전체 삭제") { _, _ ->
+                viewModel.deleteAllRecords()
+                summaryMap = emptyMap()
+                binding.cardDayDetail.visibility = View.GONE
+                loadMonth()
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 
     override fun onDestroyView() {

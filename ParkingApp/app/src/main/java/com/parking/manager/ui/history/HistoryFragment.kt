@@ -55,8 +55,6 @@ class HistoryFragment : Fragment() {
             adapter = this@HistoryFragment.adapter
         }
 
-        binding.btnDeleteAll.setOnClickListener { showDeleteAllConfirm() }
-
         setupDateNavigation()
         setupSwipeGesture()
         loadRecordsForDate(selectedDate)
@@ -115,15 +113,6 @@ class HistoryFragment : Fragment() {
             binding.tvEmptyHistory.visibility = if (records.isEmpty()) View.VISIBLE else View.GONE
             binding.recyclerHistory.visibility = if (records.isEmpty()) View.GONE else View.VISIBLE
         }
-    }
-
-    private fun showDeleteAllConfirm() {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("전체 이력 삭제")
-            .setMessage("모든 주차 이력을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")
-            .setPositiveButton("전체 삭제") { _, _ -> viewModel.deleteAllRecords() }
-            .setNegativeButton("취소", null)
-            .show()
     }
 
     override fun onDestroyView() {
