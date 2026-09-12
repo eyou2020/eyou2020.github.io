@@ -12,7 +12,12 @@
     <fragment
         android:id="@+id/historyFragment"
         android:name="com.parking.manager.ui.history.HistoryFragment"
-        android:label="주차 이력" />
+        android:label="일주차 이력" />
+
+    <fragment
+        android:id="@+id/monthlyHistoryFragment"
+        android:name="com.parking.manager.ui.history.MonthlyHistoryFragment"
+        android:label="월주차 이력" />
 
     <fragment
         android:id="@+id/locationManagerFragment"

@@ -9,7 +9,12 @@
     <item
         android:id="@+id/historyFragment"
         android:icon="@android:drawable/ic_menu_recent_history"
-        android:title="주차 이력" />
+        android:title="일주차 이력" />
+
+    <item
+        android:id="@+id/monthlyHistoryFragment"
+        android:icon="@android:drawable/ic_menu_month"
+        android:title="월주차 이력" />
 
     <item
         android:id="@+id/locationManagerFragment"

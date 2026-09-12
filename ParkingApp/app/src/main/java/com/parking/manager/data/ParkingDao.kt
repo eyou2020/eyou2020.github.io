@@ -29,4 +29,18 @@ interface ParkingDao {
 
     @Query("DELETE FROM parking_records")
     suspend fun deleteAll()
+
+    // dateKey가 'yyyy-MM' 패턴으로 시작하는 날짜별 최초 주차시간 합계(분) 반환
+    @Query("""
+        SELECT dateKey,
+               SUM(CASE WHEN moveEndTime IS NOT NULL THEN (moveEndTime - parkTime) / 60000
+                        ELSE (strftime('%s','now') * 1000 - parkTime) / 60000
+                   END) AS totalMinutes
+        FROM parking_records
+        WHERE dateKey LIKE :yearMonth || '%'
+        GROUP BY dateKey
+    """)
+    suspend fun getDailySummaryForMonth(yearMonth: String): List<DailySummary>
 }
+
+data class DailySummary(val dateKey: String, val totalMinutes: Long)

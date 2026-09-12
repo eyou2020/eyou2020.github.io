@@ -1,9 +1,12 @@
 package com.parking.manager.ui.history
 
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.GestureDetectorCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -12,6 +15,7 @@ import com.parking.manager.ParkingViewModel
 import com.parking.manager.databinding.FragmentHistoryBinding
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 class HistoryFragment : Fragment() {
 
@@ -22,6 +26,8 @@ class HistoryFragment : Fragment() {
     private val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val displayFmt = SimpleDateFormat("yyyy년 MM월 dd일 (E)", Locale.KOREAN)
     private var selectedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+    private lateinit var gestureDetector: GestureDetectorCompat
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -52,7 +58,36 @@ class HistoryFragment : Fragment() {
         binding.btnDeleteAll.setOnClickListener { showDeleteAllConfirm() }
 
         setupDateNavigation()
+        setupSwipeGesture()
         loadRecordsForDate(selectedDate)
+    }
+
+    private fun setupSwipeGesture() {
+        gestureDetector = GestureDetectorCompat(requireContext(),
+            object : GestureDetector.SimpleOnGestureListener() {
+                private val SWIPE_THRESHOLD = 100
+                private val SWIPE_VELOCITY_THRESHOLD = 100
+
+                override fun onFling(
+                    e1: MotionEvent?, e2: MotionEvent,
+                    velocityX: Float, velocityY: Float
+                ): Boolean {
+                    val diffX = e2.x - (e1?.x ?: 0f)
+                    if (abs(diffX) > SWIPE_THRESHOLD &&
+                        abs(velocityX) > SWIPE_VELOCITY_THRESHOLD &&
+                        abs(diffX) > abs(e2.y - (e1?.y ?: 0f))
+                    ) {
+                        if (diffX > 0) shiftDate(-1) else shiftDate(1)
+                        return true
+                    }
+                    return false
+                }
+            })
+
+        binding.root.setOnTouchListener { v, event ->
+            if (gestureDetector.onTouchEvent(event)) true
+            else { v.performClick(); false }
+        }
     }
 
     private fun setupDateNavigation() {

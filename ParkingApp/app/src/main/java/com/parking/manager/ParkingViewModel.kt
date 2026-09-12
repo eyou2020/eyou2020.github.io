@@ -163,6 +163,9 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    suspend fun getDailySummaryForMonth(yearMonth: String) =
+        dao.getDailySummaryForMonth(yearMonth)
+
     // ── 위치 관리 ──────────────────────────────────────────────
 
     fun addLocation(name: String, parkingMinutes: Int = 0, moveTimeMinutes: Int = 0) {

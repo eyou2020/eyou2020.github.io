@@ -90,7 +90,7 @@ class HomeFragment : Fragment() {
 
         // 전체 초기화
         listOf(
-            binding.sectionParking, binding.sectionTimer, binding.sectionMoving
+            binding.sectionTimer, binding.sectionMoving
         ).forEach { it.visibility = View.GONE }
         binding.tvElapsedTime.visibility = View.GONE
         listOf(
@@ -98,11 +98,13 @@ class HomeFragment : Fragment() {
             binding.btnStartMove, binding.btnCompleteMove,
             binding.btnEditParkTime, binding.btnEditParkLocation
         ).forEach { it.visibility = View.GONE }
+        binding.tvParkLocation.text = ""
+        binding.tvParkTime.text = ""
 
         // 레코드 데이터 표시
         record?.let {
-            binding.tvParkLocation.text = "📍 위치: ${it.parkLocation}"
-            binding.tvParkTime.text = "🕐 주차 시간: ${formatTime(it.parkTime)}"
+            binding.tvParkLocation.text = "📍 ${it.parkLocation}"
+            binding.tvParkTime.text = "🕐 ${formatTime(it.parkTime)}"
             it.scheduledMoveTime?.let { moveTime ->
                 val durMin = (moveTime - it.parkTime) / 60000
                 binding.tvScheduledTime.text =
@@ -123,7 +125,6 @@ class HomeFragment : Fragment() {
 
             SessionState.PARKED -> {
                 binding.tvStatus.text = "주차중"
-                binding.sectionParking.visibility = View.VISIBLE
                 binding.btnEditParkLocation.visibility = View.VISIBLE
                 binding.btnEditParkTime.visibility = View.VISIBLE
                 binding.btnSetTimer.visibility = View.VISIBLE
@@ -133,7 +134,6 @@ class HomeFragment : Fragment() {
 
             SessionState.TIMER_SET -> {
                 binding.tvStatus.text = "주차중"
-                binding.sectionParking.visibility = View.VISIBLE
                 binding.sectionTimer.visibility = View.VISIBLE
                 binding.btnEditParkLocation.visibility = View.VISIBLE
                 binding.btnEditParkTime.visibility = View.VISIBLE
@@ -149,7 +149,6 @@ class HomeFragment : Fragment() {
             SessionState.MOVING -> {
                 binding.tvStatusIcon.text = "🚗"
                 binding.tvStatus.text = "주차중(이동)"
-                binding.sectionParking.visibility = View.VISIBLE
                 binding.sectionMoving.visibility = View.VISIBLE
                 binding.btnCompleteMove.visibility = View.VISIBLE
             }
