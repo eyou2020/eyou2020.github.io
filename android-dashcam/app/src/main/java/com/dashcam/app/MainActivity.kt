@@ -3,7 +3,6 @@ package com.dashcam.app
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.app.AlertDialog
-import android.app.TimePickerDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,8 +16,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.text.InputType
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -48,12 +45,6 @@ class MainActivity : AppCompatActivity() {
 
         private const val KEY_AUTO_START        = "auto_start_recording"
 
-        private const val KEY_DAYTIME_ENABLED   = "daytime_enabled"
-        private const val KEY_DAYTIME_FROM_HOUR = "daytime_from_hour"
-        private const val KEY_DAYTIME_FROM_MIN  = "daytime_from_min"
-        private const val KEY_DAYTIME_TO_HOUR   = "daytime_to_hour"
-        private const val KEY_DAYTIME_TO_MIN    = "daytime_to_min"
-
         private val REQUIRED_PERMISSIONS: Array<String> = buildList {
             add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
@@ -70,7 +61,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnRecord:         ImageButton
     private lateinit var btnExit:           ImageButton
     private lateinit var btnSettings:       ImageButton
-    private lateinit var btnDaytime:        ImageButton
     private lateinit var tvRecording:       TextView
     private lateinit var tvRecordingTimer:  TextView
     private lateinit var tvStorageUsed:     TextView
@@ -184,7 +174,6 @@ class MainActivity : AppCompatActivity() {
         btnRecord    = findViewById(R.id.btnRecord)
         btnExit      = findViewById(R.id.btnExit)
         btnSettings  = findViewById(R.id.btnSettings)
-        btnDaytime         = findViewById(R.id.btnDaytime)
         tvRecording        = findViewById(R.id.tvRecording)
         tvRecordingTimer   = findViewById(R.id.tvRecordingTimer)
         tvStorageUsed      = findViewById(R.id.tvStorageUsed)
@@ -194,20 +183,8 @@ class MainActivity : AppCompatActivity() {
         btnRecord.setOnClickListener { onRecordClicked() }
         btnExit.setOnClickListener { onExitClicked() }
         btnSettings.setOnClickListener { showSegmentDurationDialog() }
-        btnDaytime.setOnClickListener { showDaytimeDialog() }
 
-        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                recordingService?.toggleTextColor()
-                return true
-            }
-        })
         surfaceView.setOnClickListener { showControls() }
-        @Suppress("ClickableViewAccessibility")
-        surfaceView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false
-        }
 
         // SurfaceHolder callback — attach/detach the live-preview surface.
         // Camera capture and recording live in RecordingService and are
@@ -366,7 +343,6 @@ class MainActivity : AppCompatActivity() {
         btnRecord.visibility   = View.VISIBLE
         btnExit.visibility     = View.VISIBLE
         btnSettings.visibility = View.VISIBLE
-        btnDaytime.visibility  = View.VISIBLE
         uiHandler.removeCallbacks(hideRunnable)
         if (isRecording) scheduleHideControls()
     }
@@ -377,7 +353,6 @@ class MainActivity : AppCompatActivity() {
             btnRecord.visibility   = View.GONE
             btnExit.visibility     = View.GONE
             btnSettings.visibility = View.GONE
-            btnDaytime.visibility  = View.GONE
         }
     }
 
@@ -469,47 +444,4 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    // Settings — daytime text-color hours
-    // ══════════════════════════════════════════════════════════════════
-
-    private fun showDaytimeDialog() {
-        val settings = recordingService?.getDaytimeSettings() ?: run {
-            val p = prefs()
-            intArrayOf(
-                if (p.getBoolean(KEY_DAYTIME_ENABLED, false)) 1 else 0,
-                p.getInt(KEY_DAYTIME_FROM_HOUR, 6), p.getInt(KEY_DAYTIME_FROM_MIN, 0),
-                p.getInt(KEY_DAYTIME_TO_HOUR, 20),  p.getInt(KEY_DAYTIME_TO_MIN,  0)
-            )
-        }
-        val fromH = settings[1]; val fromM = settings[2]
-        val toH   = settings[3]; val toM   = settings[4]
-
-        TimePickerDialog(this, { _, h, m ->
-            TimePickerDialog(this, { _, h2, m2 ->
-                saveDaytimeSettings(h, m, h2, m2)
-            }, toH, toM, true).apply {
-                setTitle(getString(R.string.daytime_to_title))
-                show()
-            }
-        }, fromH, fromM, true).apply {
-            setTitle(getString(R.string.daytime_from_title))
-            show()
-        }
-    }
-
-    private fun saveDaytimeSettings(fromH: Int, fromM: Int, toH: Int, toM: Int) {
-        val fromStr = String.format("%02d:%02d", fromH, fromM)
-        val toStr   = String.format("%02d:%02d", toH,   toM)
-        if (recordingService != null) {
-            recordingService!!.setDaytimeSettings(true, fromH, fromM, toH, toM)
-        } else {
-            prefs().edit()
-                .putBoolean(KEY_DAYTIME_ENABLED,   true)
-                .putInt(KEY_DAYTIME_FROM_HOUR, fromH).putInt(KEY_DAYTIME_FROM_MIN, fromM)
-                .putInt(KEY_DAYTIME_TO_HOUR,   toH).putInt(KEY_DAYTIME_TO_MIN,   toM)
-                .apply()
-        }
-        Toast.makeText(this, getString(R.string.daytime_saved, fromStr, toStr), Toast.LENGTH_SHORT).show()
-    }
 }

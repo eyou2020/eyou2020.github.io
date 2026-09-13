@@ -110,12 +110,6 @@ class OverlayVideoRecorder(
     @Volatile private var recording = false
     val isRecording: Boolean get() = recording
 
-    // ── Overlay text color (white = day, black = night; toggled by double-tap) ──
-    @Volatile private var _overlayTextColor: Int = Color.WHITE
-    var overlayTextColor: Int
-        get() = _overlayTextColor
-        set(v) { if (_overlayTextColor != v) { _overlayTextColor = v; overlayDirty.set(true) } }
-
     // ── Render thread ──────────────────────────────────────────────────────
     private var renderThread:  HandlerThread? = null
     private var renderHandler: Handler?       = null
@@ -778,7 +772,7 @@ class OverlayVideoRecorder(
 
         fun makePaint(sz: Float) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style    = Paint.Style.FILL
-            color    = _overlayTextColor
+            color    = Color.WHITE
             textSize = sz
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
@@ -822,11 +816,6 @@ class OverlayVideoRecorder(
         drawAt(_overlaySpeed, margin, h - margin - speedPaint.fontMetrics.bottom, speedPaint)
 
         uploadOverlayBitmap(bmp)
-    }
-
-    /** Toggle overlay text color between white and black (user double-tap). */
-    fun toggleTextColor() {
-        overlayTextColor = if (_overlayTextColor == Color.WHITE) Color.BLACK else Color.WHITE
     }
 
     /** Greedy word-wrap of [text] into lines no wider than [maxWidth] under [paint]. */
